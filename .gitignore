@@ -1,6 +1,10 @@
 # Data
 /data/
 
+# Outputs
+/outputs/
+/outputs_plan_b/
+
 # Mac OS-specific storage files
 .DS_Store
 

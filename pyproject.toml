@@ -5,7 +5,7 @@ build-backend = "flit_core.buildapi"
 [project]
 name = "dro_circuit"
 version = "0.0.1"
-description = "A short description of the project."
+description = "DRO over corruptions for faithful circuit discovery in transformers."
 authors = [
   { name = "Jiahao Zhang" },
 ]
@@ -16,13 +16,17 @@ classifiers = [
     "License :: OSI Approved :: MIT License"
 ]
 dependencies = [
-    "mkdocs",
-    "pip",
+    "torch>=2.1",
+    "transformer-lens>=2.15.0",
+    "numpy",
+    "matplotlib>=3.10",
+    "pyyaml",
+    "tqdm",
     "pytest",
     "python-dotenv",
     "ruff",
 ]
-requires-python = "~=3.10.0"
+requires-python = ">=3.10"
 
 
 [tool.ruff]

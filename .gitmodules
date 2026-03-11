@@ -1,0 +1,6 @@
+[submodule "vendor/EAP-IG"]
+	path = vendor/EAP-IG
+	url = https://github.com/hannamw/EAP-IG.git
+[submodule "vendor/Automatic-Circuit-Discovery"]
+	path = vendor/Automatic-Circuit-Discovery
+	url = https://github.com/ArthurConmy/Automatic-Circuit-Discovery.git
