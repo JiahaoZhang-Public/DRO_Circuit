@@ -1,4 +1,5 @@
 site_name: DRO_Circuit
-# 
 site_author: Jiahao Zhang
-# 
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
