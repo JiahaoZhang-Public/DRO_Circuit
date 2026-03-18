@@ -84,10 +84,12 @@ class MultiCorruptDataset(Dataset):
 
     @property
     def corruption_names(self) -> List[str]:
+        """Sorted list of corruption family names."""
         return self._corruption_names
 
     @property
     def n_corruptions(self) -> int:
+        """Number of corruption families (K)."""
         return len(self._corruption_names)
 
     def to_dataloader(self, batch_size: int, shuffle: bool = False) -> DataLoader:
@@ -100,6 +102,7 @@ class MultiCorruptDataset(Dataset):
 
 
 def collate_multi_corrupt(examples: List[MultiCorruptExample]) -> MultiCorruptBatch:
+    """Collate a list of MultiCorruptExample into a single MultiCorruptBatch."""
     corruption_names = sorted(examples[0].corrupted_strings.keys())
     return MultiCorruptBatch(
         clean_strings=[ex.clean_string for ex in examples],

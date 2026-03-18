@@ -19,8 +19,17 @@ class CorruptionFamily(ABC):
 
     @abstractmethod
     def name(self) -> str:
+        """Return a unique identifier for this corruption family (e.g. 'S2_IO')."""
         ...
 
     @abstractmethod
     def generate(self, clean_dataset: Any, **kwargs) -> CorruptionResult:
+        """Generate corrupted versions of the clean dataset.
+
+        Args:
+            clean_dataset: The original clean dataset to corrupt.
+
+        Returns:
+            CorruptionResult with corrupted strings and metadata.
+        """
         ...

@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """
-Run DRO circuit discovery with Plan A (Score-Aggregate-Select).
+Run DRO circuit discovery (Score-Aggregate-Select).
 
 Usage:
-    python -m dro_circuit.scripts.run_plan_a --task ioi --n_edges 200 --aggregator max
-    python -m dro_circuit.scripts.run_plan_a --config configs/plan_a_ioi.yaml
+    python -m dro_circuit.scripts.run --task ioi --n_edges 200 --aggregator max
+    python -m dro_circuit.scripts.run --config configs/ioi.yaml
 """
 
 import argparse
@@ -13,12 +13,12 @@ from pathlib import Path
 
 from dro_circuit.config import ExperimentConfig
 from dro_circuit.evaluation.robust_evaluator import compute_robust_metrics, evaluate_robust
-from dro_circuit.selection.plan_a import PlanAPipeline
+from dro_circuit.selection.pipeline import DROPipeline
 from dro_circuit.tasks.ioi import IOITask
 
 
 def main():
-    parser = argparse.ArgumentParser(description="DRO Circuit Discovery - Plan A")
+    parser = argparse.ArgumentParser(description="DRO Circuit Discovery")
     parser.add_argument("--task", default="ioi", choices=["ioi"])
     parser.add_argument("--n_examples", type=int, default=100)
     parser.add_argument("--n_edges", type=int, default=200)
@@ -89,9 +89,9 @@ def main():
     )
 
     # Build and run pipeline
-    print(f"\nRunning Plan A: {config.dro.aggregator} aggregation, "
+    print(f"\nRunning DRO pipeline: {config.dro.aggregator} aggregation, "
           f"{config.selection.n_edges} edges, {config.scoring.method}")
-    pipeline = PlanAPipeline.from_config(model, config)
+    pipeline = DROPipeline.from_config(model, config)
     circuit_graph, score_store = pipeline.run(multi_ds, task.get_scoring_metric())
 
     # Evaluate

@@ -1,4 +1,4 @@
-"""Plan A pipeline: Score -> DRO Aggregate -> Greedy/TopN selection."""
+"""DRO pipeline: Score -> Aggregate -> Select."""
 
 import sys
 from pathlib import Path
@@ -18,9 +18,9 @@ from dro_circuit.scoring.per_corruption_scorer import PerCorruptionScorer
 from dro_circuit.scoring.score_store import ScoreStore
 
 
-class PlanAPipeline:
+class DROPipeline:
     """
-    Plan A: Score -> Aggregate -> Greedy/TopN.
+    DRO circuit discovery: Score -> Aggregate -> Select.
 
     Steps:
       1. For each corruption c_k, run EAP-IG -> per-edge scores s_e^{(k)}
@@ -52,7 +52,7 @@ class PlanAPipeline:
         metric: Callable,
     ) -> Tuple[Graph, ScoreStore]:
         """
-        Execute the full Plan A pipeline.
+        Execute the full DRO pipeline.
 
         Returns:
             (graph, score_store): graph has the circuit selected (in_graph mask),
@@ -90,7 +90,7 @@ class PlanAPipeline:
         cls,
         model: HookedTransformer,
         config: ExperimentConfig,
-    ) -> "PlanAPipeline":
+    ) -> "DROPipeline":
         """Build pipeline from experiment config."""
         scorer = PerCorruptionScorer(
             model=model,

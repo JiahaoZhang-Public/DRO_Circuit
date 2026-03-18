@@ -9,6 +9,8 @@ import yaml
 
 @dataclass
 class ModelConfig:
+    """Transformer model specification."""
+
     name: str = "gpt2"
     device: str = "cuda"
     dtype: str = "float32"
@@ -16,11 +18,15 @@ class ModelConfig:
 
 @dataclass
 class CorruptionConfig:
+    """Which corruption families to use for scoring and evaluation."""
+
     families: List[str] = field(default_factory=lambda: ["S2_IO", "IO_RAND", "S_RAND"])
 
 
 @dataclass
 class ScoringConfig:
+    """EAP-IG edge attribution parameters."""
+
     method: Literal["EAP", "EAP-IG-inputs", "EAP-IG-activations", "clean-corrupted"] = (
         "EAP-IG-inputs"
     )
@@ -32,6 +38,14 @@ class ScoringConfig:
 
 @dataclass
 class DROConfig:
+    """DRO aggregation strategy over corruption scores.
+
+    Attributes:
+        aggregator: Which aggregation rule to use.
+        cvar_alpha: CVaR parameter. 0→max (worst-case), 1→mean. Only used when aggregator='cvar'.
+        softmax_temperature: Softmax temperature. 0→max, ∞→mean. Only used when aggregator='softmax'.
+    """
+
     aggregator: Literal["max", "cvar", "softmax"] = "max"
     cvar_alpha: float = 0.5
     softmax_temperature: float = 1.0
@@ -39,35 +53,29 @@ class DROConfig:
 
 @dataclass
 class SelectionConfig:
+    """Circuit edge selection parameters."""
+
     n_edges: int = 200
     selection_method: Literal["topn", "greedy"] = "topn"
     absolute: bool = True
 
 
 @dataclass
-class PlanBConfig:
-    lr: float = 1e-2
-    n_outer_steps: int = 200
-    reg_type: Literal["L0", "L1"] = "L1"
-    reg_lambda: float = 0.01
-    temperature: float = 0.1
-    adversary_temperature: float = 1.0
-
-
-@dataclass
 class EvalConfig:
+    """Evaluation parameters for activation patching."""
+
     intervention: Literal["patching", "zero", "mean"] = "patching"
     batch_size: int = 32
 
 
 @dataclass
 class ExperimentConfig:
+    """Top-level experiment configuration, composing all sub-configs."""
     model: ModelConfig = field(default_factory=ModelConfig)
     corruption: CorruptionConfig = field(default_factory=CorruptionConfig)
     scoring: ScoringConfig = field(default_factory=ScoringConfig)
     dro: DROConfig = field(default_factory=DROConfig)
     selection: SelectionConfig = field(default_factory=SelectionConfig)
-    plan_b: PlanBConfig = field(default_factory=PlanBConfig)
     eval: EvalConfig = field(default_factory=EvalConfig)
     task: str = "ioi"
     n_examples: int = 100
@@ -86,7 +94,6 @@ class ExperimentConfig:
             ("scoring", ScoringConfig),
             ("dro", DROConfig),
             ("selection", SelectionConfig),
-            ("plan_b", PlanBConfig),
             ("eval", EvalConfig),
         ]:
             if section_name in raw:
