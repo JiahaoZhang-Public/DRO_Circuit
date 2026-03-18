@@ -25,6 +25,7 @@ class ScoreStore:
 
     @property
     def n_corruptions(self) -> int:
+        """Number of corruption families (K)."""
         return len(self.corruption_names)
 
     def set_scores(self, corruption_name: str, scores: torch.Tensor):

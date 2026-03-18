@@ -1,163 +1,145 @@
 # Getting Started
 
-This page is the shortest path from clone to a real experiment run.
+## Requirements
 
-## What this repo does
+- Python ≥ 3.10
+- PyTorch ≥ 2.1
+- CUDA GPU (recommended; CPU works but is slow)
 
-The codebase studies robust circuit discovery: discover a circuit that remains
-faithful across several corruption families instead of overfitting to one
-particular clean-corrupted pair.
-
-The current task is IOI on GPT-2. The main production path is `Plan A`:
-
-1. generate clean IOI prompts plus several corruption variants
-2. score edges independently for each corruption
-3. aggregate those scores with a DRO-style rule
-4. select a circuit
-5. evaluate the resulting circuit under each corruption
-
-`Plan B` exists as an experimental learnable-mask path, but the comments in the
-implementation already note that it is structurally incomplete as a fully
-differentiable method.
-
-## Prerequisites
-
-- Python 3.10 or newer
-- Git submodules enabled
-- A working PyTorch environment
-- GPU access if you want practical run times for GPT-2 experiments
-
-## Setup
-
-Clone with submodules:
+## Installation
 
 ```bash
-git clone --recurse-submodules <repo-url>
-cd dro_circuit
+# Clone with vendor submodules
+git clone --recursive https://github.com/JiahaoZhang-Public/DRO_Circuit.git
+cd DRO_Circuit
+
+# Install the package
+pip install -e .
 ```
 
-If the repo is already cloned:
+If you already cloned without `--recursive`, initialize submodules separately:
 
 ```bash
 git submodule update --init --recursive
 ```
 
-Create an environment and install the package:
+### Vendor dependencies
+
+The project relies on two vendored libraries (included as git submodules):
+
+| Submodule | Path | Purpose |
+|-----------|------|---------|
+| **EAP-IG** | `vendor/EAP-IG/` | Edge Attribution Patching — single-pass edge scoring |
+| **ACDC** | `vendor/Automatic-Circuit-Discovery/` | IOI task dataset and corruption generation |
+
+These are automatically available via `sys.path` manipulation in the package — no separate installation needed.
+
+## First Run
+
+Run a single DRO circuit discovery experiment on GPT-2 small / IOI:
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
-
-The project code imports the vendored research libraries by path, so the
-submodules need to exist locally even after `pip install -e .`.
-
-## Sanity Check
-
-Run the local tests:
-
-```bash
-PYTHONPATH=. pytest -q tests
-```
-
-Use the explicit `tests` path. Running plain `pytest` will also collect test
-suites inside `vendor/`, which are not part of the default project smoke test
-and may fail on missing extras such as `pygraphviz`.
-
-## First Experiment
-
-The fastest way to run the main pipeline is the provided config:
-
-```bash
-python -m dro_circuit.scripts.run_plan_a --config configs/plan_a_ioi.yaml
-```
-
-That config currently uses:
-
-- task: `ioi`
-- model: `gpt2`
-- corruptions: `S2_IO`, `IO_RAND`, `S_RAND`
-- scoring: `EAP-IG-inputs`
-- aggregator: `max`
-- selection: top 200 edges with `topn`
-
-Outputs are written under the configured `output_dir` and include:
-
-- `circuit.pt`
-- `scores.pt`
-- `results.json`
-- `config.json`
-
-## CLI Variants
-
-Run Plan A directly from flags:
-
-```bash
-python -m dro_circuit.scripts.run_plan_a \
+python -m dro_circuit.scripts.run \
   --task ioi \
   --n_examples 100 \
   --n_edges 200 \
   --aggregator max \
-  --method EAP-IG-inputs \
-  --selection topn \
-  --device cuda
+  --device cuda \
+  --output_dir outputs/first_run
 ```
 
-Run the experimental Plan B pipeline:
+This will:
+1. Load GPT-2 small with TransformerLens hooks
+2. Generate 100 IOI examples with 5 corruption variants each
+3. Score all edges under each corruption via EAP-IG
+4. Aggregate scores with Max (worst-case) rule
+5. Select top 200 edges → sparse circuit
+6. Evaluate circuit faithfulness under all corruptions
+
+Output files in `outputs/first_run/`:
+
+| File | Content |
+|------|---------|
+| `circuit.pt` | Circuit graph with `in_graph` mask |
+| `scores.pt` | Per-corruption edge scores (K × n_fwd × n_bwd) |
+| `results.json` | Evaluation metrics (worst, mean, gap, per-corruption) |
+| `config.json` | Full experiment configuration |
+
+## Aggregator Options
 
 ```bash
-python -m dro_circuit.scripts.run_plan_b \
-  --task ioi \
-  --n_examples 100 \
-  --n_edges 200 \
-  --device cuda
+# Max (pure worst-case)
+--aggregator max
+
+# CVaR — α controls tail risk (0=max, 1=mean)
+--aggregator cvar --cvar_alpha 0.5
+
+# Softmax — τ controls temperature (0→max, ∞→mean)
+--aggregator softmax --softmax_temp 1.0
 ```
 
-Compare naive single-corruption discovery against DRO aggregation:
+## Comprehensive Experiment
+
+Run the full experiment grid (8 edge budgets × 10 aggregators = 120 circuits):
 
 ```bash
-python experiments/compare_naive_vs_dro.py --device cpu --n_examples 50 --n_edges 100
+python experiments/comprehensive_experiment.py \
+  --n_examples 200 \
+  --device cuda \
+  --seed 42 \
+  --batch_size 25 \
+  --output_dir outputs/comprehensive \
+  --resume  # skip already-completed phases
 ```
 
-## Repository Layout
+Phases:
+1. **Score** (~12s) — EAP-IG per corruption, saves `scores.pt`
+2. **Build** (~13s) — Aggregate + select for all (budget, aggregator) pairs
+3. **Evaluate** (~26min) — Evaluate all 120 circuits under all corruptions
 
-The directories that matter most for onboarding are:
+### Analyze Results
 
-```text
-dro_circuit/
-  tasks/ioi.py                  Task-specific model and dataset setup
-  corruption/ioi.py             IOI corruption family wrappers
-  data/multi_corrupt_dataset.py Clean-plus-many-corruptions dataset abstraction
-  data/eap_adapter.py           Adapters into EAP-IG dataloaders
-  scoring/per_corruption_scorer.py
-  aggregation/aggregators.py
-  selection/plan_a.py
-  selection/plan_b.py
-  evaluation/robust_evaluator.py
-  scripts/run_plan_a.py
-  scripts/run_plan_b.py
+Generate figures and CSV tables:
 
-configs/plan_a_ioi.yaml         Example config used by the main script
-experiments/compare_naive_vs_dro.py
-vendor/                         ACDC and EAP-IG submodules
-tests/                          Local unit tests for the wrapper code
+```bash
+python experiments/analyze_results.py \
+  --input_dir outputs/comprehensive \
+  --output_dir outputs/comprehensive/figures
 ```
 
-## Mental Model
+Produces 9 figures (PDF) and 4 tables (CSV):
+- Worst-case vs edge budget
+- Aggregator spectrum (max → mean)
+- Per-corruption heatmap
+- Top-20 edge comparison
+- And more
 
-If you are trying to extend the repo, follow this order:
+## Mixed Corruption Baseline
 
-1. start in `tasks/` to see how a task loads a model and produces labels
-2. read `corruption/` and `data/` to understand the clean/corrupt dataset shape
-3. read `scoring/` to see how edge scores are produced per corruption
-4. read `aggregation/` and `selection/plan_a.py` for the main robust pipeline
-5. read `evaluation/` to understand the metrics used for comparison
+Compare DRO against the standard "mixed corruption" practice:
 
-## Common Pitfalls
+```bash
+python experiments/mixed_corruption_experiment.py \
+  --n_examples 200 \
+  --device cuda \
+  --output_dir outputs/mixed_corruption
+```
 
-- `README.md` and some older docs were originally cookiecutter placeholders; the
-  code is a better source of truth
-- the package currently assumes IOI-specific vendor code exists
-- plain `pytest` will pull in vendor tests
-- `Plan B` should be treated as exploratory code, not as a validated baseline
+## Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+30 unit tests covering aggregation, config, data loading, and score storage.
+
+## FAQ
+
+**Q: How long does a single run take?**
+A: ~3 minutes on an RTX 5090 with n_examples=200, n_edges=200. The comprehensive experiment (120 circuits) takes ~30 minutes.
+
+**Q: Can I use a different model?**
+A: Currently only GPT-2 small is supported via the IOI task. The architecture supports extending to other TransformerLens-compatible models by implementing a new task class.
+
+**Q: What if I don't have a GPU?**
+A: Add `--device cpu`. It works but is significantly slower.

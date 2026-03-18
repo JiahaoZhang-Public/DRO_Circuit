@@ -1,1 +1,1 @@
-from dro_circuit.selection.plan_a import PlanAPipeline
+from dro_circuit.selection.pipeline import DROPipeline
