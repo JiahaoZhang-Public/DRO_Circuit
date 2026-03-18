@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRO Circuit Discovery — 组内汇报</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0e17;
+            --bg-secondary: #111827;
+            --bg-card: #161d2f;
+            --bg-card-hover: #1c2540;
+            --text-primary: #e8ecf4;
+            --text-secondary: #7a8ba8;
+            --text-dim: #4a5568;
+            --accent-cyan: #00e5c8;
+            --accent-cyan-dim: rgba(0, 229, 200, 0.15);
+            --accent-cyan-glow: rgba(0, 229, 200, 0.4);
+            --accent-red: #ff4d6a;
+            --accent-red-dim: rgba(255, 77, 106, 0.15);
+            --accent-orange: #ff9f43;
+            --accent-orange-dim: rgba(255, 159, 67, 0.15);
+            --accent-blue: #5b8def;
+            --accent-purple: #a78bfa;
+            --accent-green: #34d399;
+            --border: rgba(255, 255, 255, 0.06);
+            --font-display: 'Syne', 'Noto Sans SC', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+            --font-body: 'Noto Sans SC', 'Syne', sans-serif;
+            --title-size: clamp(1.8rem, 5vw, 3.8rem);
+            --h2-size: clamp(1.2rem, 3vw, 2.2rem);
+            --h3-size: clamp(0.95rem, 2vw, 1.4rem);
+            --body-size: clamp(0.7rem, 1.3vw, 1rem);
+            --small-size: clamp(0.6rem, 0.9vw, 0.8rem);
+            --mono-size: clamp(0.6rem, 1vw, 0.85rem);
+            --slide-padding: clamp(1.5rem, 4vw, 4rem);
+            --content-gap: clamp(0.5rem, 1.5vw, 1.5rem);
+            --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration: 0.7s;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { height: 100%; overflow-x: hidden; }
+        html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+        .slide {
+            width: 100vw; height: 100vh; height: 100dvh;
+            overflow: hidden; scroll-snap-align: start;
+            display: flex; flex-direction: column; position: relative;
+            background: var(--bg-primary);
+            font-family: var(--font-body);
+            color: var(--text-primary);
+        }
+        .slide-content {
+            flex: 1; display: flex; flex-direction: column;
+            justify-content: center; max-height: 100%; overflow: hidden;
+            padding: var(--slide-padding);
+        }
+        img { max-width: 100%; max-height: min(50vh, 400px); object-fit: contain; }
+        .feature-list, .bullet-list { gap: clamp(0.4rem, 1vh, 1rem); }
+        .feature-list li, .bullet-list li { font-size: var(--body-size); line-height: 1.4; }
+        @media (max-height: 700px) {
+            :root { --slide-padding: clamp(0.75rem, 3vw, 2rem); --content-gap: clamp(0.4rem, 1.5vw, 1rem); --title-size: clamp(1.25rem, 4.5vw, 2.5rem); --h2-size: clamp(1rem, 3vw, 1.75rem); }
+        }
+        @media (max-height: 600px) {
+            :root { --slide-padding: clamp(0.5rem, 2.5vw, 1.5rem); --content-gap: clamp(0.3rem, 1vw, 0.75rem); --title-size: clamp(1.1rem, 4vw, 2rem); --body-size: clamp(0.7rem, 1.2vw, 0.95rem); }
+            .nav-dots, .keyboard-hint, .decorative { display: none; }
+        }
+        @media (max-height: 500px) {
+            :root { --slide-padding: clamp(0.4rem, 2vw, 1rem); --title-size: clamp(1rem, 3.5vw, 1.5rem); --h2-size: clamp(0.9rem, 2.5vw, 1.25rem); --body-size: clamp(0.65rem, 1vw, 0.85rem); }
+        }
+        @media (max-width: 600px) { :root { --title-size: clamp(1.25rem, 7vw, 2.5rem); } }
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+            html { scroll-behavior: auto; }
+        }
+        body { background: var(--bg-primary); }
+        .progress-bar {
+            position: fixed; top: 0; left: 0; height: 3px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            z-index: 9999; transition: width 0.3s ease;
+            box-shadow: 0 0 10px var(--accent-cyan-glow);
+        }
+        .nav-dots {
+            position: fixed; right: clamp(0.5rem, 1.5vw, 1.5rem);
+            top: 50%; transform: translateY(-50%);
+            display: flex; flex-direction: column; gap: 8px; z-index: 9998;
+        }
+        .nav-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--text-dim); cursor: pointer;
+            transition: all 0.3s ease; border: none; padding: 0;
+        }
+        .nav-dot.active {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan-glow);
+            transform: scale(1.3);
+        }
+        .slide-counter {
+            position: absolute; bottom: clamp(0.5rem, 1.5vw, 1.5rem);
+            right: clamp(0.5rem, 2vw, 2rem);
+            font-family: var(--font-mono); font-size: var(--small-size);
+            color: var(--text-dim); letter-spacing: 0.1em;
+        }
+        .grid-bg::before {
+            content: ''; position: absolute; inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 60px 60px; pointer-events: none;
+        }
+        .mesh-1::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 20% 80%, rgba(0,229,200,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 20%, rgba(91,141,239,0.06) 0%, transparent 50%);
+        }
+        .mesh-2::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background: radial-gradient(ellipse at 70% 90%, rgba(255,77,106,0.08) 0%, transparent 40%), radial-gradient(ellipse at 30% 10%, rgba(0,229,200,0.06) 0%, transparent 50%);
+        }
+        .reveal {
+            opacity: 0; transform: translateY(25px);
+            transition: opacity var(--duration) var(--ease-out-expo), transform var(--duration) var(--ease-out-expo);
+        }
+        .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+        .reveal:nth-child(1) { transition-delay: 0.05s; }
+        .reveal:nth-child(2) { transition-delay: 0.15s; }
+        .reveal:nth-child(3) { transition-delay: 0.25s; }
+        .reveal:nth-child(4) { transition-delay: 0.35s; }
+        .reveal:nth-child(5) { transition-delay: 0.45s; }
+        .reveal:nth-child(6) { transition-delay: 0.55s; }
+        .reveal-scale {
+            opacity: 0; transform: scale(0.92);
+            transition: opacity 0.8s var(--ease-out-expo), transform 0.8s var(--ease-out-expo);
+        }
+        .slide.visible .reveal-scale { opacity: 1; transform: scale(1); }
+        h1 { font-family: var(--font-display); font-size: var(--title-size); font-weight: 800; line-height: 1.1; letter-spacing: -0.02em; }
+        h2 { font-family: var(--font-display); font-size: var(--h2-size); font-weight: 700; line-height: 1.2; letter-spacing: -0.01em; }
+        h3 { font-family: var(--font-display); font-size: var(--h3-size); font-weight: 600; line-height: 1.3; }
+        p, li { font-size: var(--body-size); line-height: 1.6; color: var(--text-secondary); }
+        .label { font-family: var(--font-mono); font-size: var(--small-size); text-transform: uppercase; letter-spacing: 0.15em; color: var(--accent-cyan); font-weight: 500; }
+        .mono { font-family: var(--font-mono); }
+        .cyan { color: var(--accent-cyan); }
+        .red { color: var(--accent-red); }
+        .orange { color: var(--accent-orange); }
+        .blue { color: var(--accent-blue); }
+        .green { color: var(--accent-green); }
+        .purple { color: var(--accent-purple); }
+        .dim { color: var(--text-dim); }
+        .card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: clamp(0.8rem, 2vw, 1.5rem);
+            transition: all 0.3s ease;
+        }
+        .card:hover { background: var(--bg-card-hover); border-color: rgba(255,255,255,0.1); }
+        .formula-box {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 0 10px 10px 0;
+            padding: clamp(0.8rem, 2vw, 1.5rem) clamp(1rem, 3vw, 2rem);
+            font-family: var(--font-mono); font-size: clamp(0.8rem, 1.5vw, 1.2rem);
+            letter-spacing: 0.02em; color: var(--text-primary); text-align: center;
+        }
+        .metric-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 4px 12px; border-radius: 20px;
+            font-family: var(--font-mono); font-size: var(--small-size); font-weight: 500;
+        }
+        .metric-badge.positive { background: rgba(0,229,200,0.12); color: var(--accent-cyan); }
+        .metric-badge.negative { background: rgba(255,77,106,0.12); color: var(--accent-red); }
+        .metric-badge.neutral { background: rgba(255,159,67,0.12); color: var(--accent-orange); }
+        .chart-container {
+            position: relative; width: 100%; max-height: min(52vh, 450px);
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            padding: clamp(0.5rem, 1.5vw, 1rem); overflow: visible;
+        }
+        .chart-container svg { width: 100%; height: 100%; overflow: visible; }
+        .chart-tooltip {
+            position: absolute; pointer-events: none;
+            background: rgba(11,14,23,0.95); border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px; padding: 8px 12px;
+            font-family: var(--font-mono); font-size: 11px;
+            color: var(--text-primary); white-space: nowrap;
+            opacity: 0; transition: opacity 0.15s ease;
+            z-index: 100; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .chart-tooltip.show { opacity: 1; }
+        .chart-legend {
+            display: flex; flex-wrap: wrap; gap: clamp(0.5rem, 1.5vw, 1.2rem);
+            justify-content: center; padding: clamp(0.3rem, 0.8vw, 0.6rem) 0;
+        }
+        .legend-item {
+            display: flex; align-items: center; gap: 6px;
+            font-family: var(--font-mono); font-size: var(--small-size); color: var(--text-secondary);
+        }
+        .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .heatmap-grid { display: grid; gap: 3px; width: 100%; }
+        .heatmap-cell {
+            border-radius: 4px; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-mono); font-size: clamp(0.55rem, 0.9vw, 0.75rem); font-weight: 500;
+            cursor: pointer; transition: all 0.2s ease; min-height: clamp(28px, 4vh, 42px);
+        }
+        .heatmap-cell:hover { transform: scale(1.05); z-index: 2; box-shadow: 0 0 15px rgba(0,0,0,0.5); }
+        .heatmap-label {
+            font-family: var(--font-mono); font-size: clamp(0.5rem, 0.8vw, 0.7rem);
+            color: var(--text-dim); text-align: right; padding-right: 8px;
+            display: flex; align-items: center; justify-content: flex-end;
+        }
+        .heatmap-col-label {
+            font-family: var(--font-mono); font-size: clamp(0.5rem, 0.8vw, 0.65rem);
+            color: var(--text-dim); text-align: center;
+            transform: rotate(-25deg); transform-origin: bottom center; white-space: nowrap;
+        }
+        .stat-row { display: flex; gap: clamp(0.5rem, 2vw, 1.5rem); flex-wrap: wrap; justify-content: center; }
+        .stat-item { text-align: center; flex: 1; min-width: 120px; }
+        .stat-value { font-family: var(--font-mono); font-weight: 600; font-size: clamp(1.2rem, 3vw, 2.5rem); line-height: 1; }
+        .stat-label { font-size: var(--small-size); color: var(--text-dim); margin-top: 4px; }
+        .comp-table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            font-family: var(--font-mono); font-size: clamp(0.55rem, 0.95vw, 0.78rem);
+        }
+        .comp-table th {
+            background: rgba(255,255,255,0.04); color: var(--text-dim);
+            padding: clamp(4px, 0.6vw, 8px) clamp(6px, 1vw, 12px);
+            text-align: center; font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        .comp-table td {
+            padding: clamp(4px, 0.5vw, 7px) clamp(6px, 1vw, 12px);
+            text-align: center; border-bottom: 1px solid var(--border);
+            color: var(--text-secondary); transition: background 0.2s ease;
+        }
+        .comp-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .comp-table td:first-child { text-align: right; color: var(--text-dim); }
+        .comp-table .best { color: var(--accent-cyan); font-weight: 600; }
+        .comp-table .worst { color: var(--accent-red); }
+        .title-slide .slide-content { align-items: center; text-align: center; gap: clamp(0.8rem, 2vh, 1.5rem); }
+        .title-tag {
+            display: inline-block; padding: 6px 16px;
+            border: 1px solid var(--accent-cyan); border-radius: 20px;
+            font-family: var(--font-mono); font-size: var(--small-size);
+            color: var(--accent-cyan); letter-spacing: 0.1em;
+        }
+        .title-subtitle { font-size: clamp(0.85rem, 1.8vw, 1.3rem); color: var(--text-secondary); max-width: 700px; }
+        .title-meta { font-family: var(--font-mono); font-size: var(--small-size); color: var(--text-dim); }
+        .section-slide .slide-content { align-items: center; justify-content: center; text-align: center; }
+        .section-number {
+            font-family: var(--font-mono); font-size: clamp(3rem, 10vw, 8rem);
+            font-weight: 300; color: var(--accent-cyan); opacity: 0.15;
+            line-height: 1; margin-bottom: calc(-1 * clamp(1rem, 3vw, 2.5rem));
+        }
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(0.8rem, 2vw, 2rem); align-items: start; }
+        @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+        .flow-row { display: flex; align-items: center; justify-content: center; gap: clamp(0.3rem, 1vw, 0.8rem); flex-wrap: wrap; }
+        .flow-box {
+            padding: clamp(0.4rem, 1vw, 0.7rem) clamp(0.6rem, 1.5vw, 1.2rem);
+            border-radius: 8px; font-family: var(--font-mono);
+            font-size: var(--small-size); font-weight: 500; white-space: nowrap;
+        }
+        .flow-arrow { color: var(--text-dim); font-size: clamp(0.8rem, 1.5vw, 1.2rem); }
+        .callout {
+            background: var(--accent-cyan-dim); border-left: 3px solid var(--accent-cyan);
+            border-radius: 0 8px 8px 0;
+            padding: clamp(0.5rem, 1.2vw, 1rem) clamp(0.8rem, 2vw, 1.5rem);
+        }
+        .callout p { color: var(--text-primary); }
+        .callout-red { background: var(--accent-red-dim); border-left-color: var(--accent-red); }
+        .callout-orange { background: var(--accent-orange-dim); border-left-color: var(--accent-orange); }
+        /* Pipeline */
+        .pipeline-wrap { display: flex; gap: clamp(0.5rem, 1.5vw, 1rem); align-items: stretch; flex-wrap: wrap; }
+        .pipeline-phase {
+            flex: 1; min-width: 240px; background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 12px; padding: clamp(0.6rem, 1.5vw, 1rem);
+        }
+        .pipeline-step {
+            display: flex; align-items: center; gap: 8px; padding: 4px 8px; margin: 3px 0;
+            border-radius: 6px; font-family: var(--font-mono); font-size: var(--small-size);
+        }
+        .step-num {
+            width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; font-size: 9px; font-weight: 700; flex-shrink: 0;
+        }
+        .pipeline-arrow { text-align: center; color: var(--text-dim); font-size: 14px; line-height: 1.2; }
+        .pipeline-connector {
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(1.5rem, 2.5vw, 2rem); color: var(--text-dim); padding: 0 4px;
+        }
+        /* Corruption example table */
+        .corrupt-table {
+            width: 100%; border-collapse: separate; border-spacing: 0;
+            font-family: var(--font-mono); font-size: clamp(0.5rem, 0.85vw, 0.72rem);
+        }
+        .corrupt-table th {
+            background: rgba(255,255,255,0.04); color: var(--text-dim);
+            padding: clamp(3px, 0.5vw, 6px) clamp(4px, 0.8vw, 10px);
+            text-align: left; font-weight: 500; border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        .corrupt-table td {
+            padding: clamp(3px, 0.4vw, 5px) clamp(4px, 0.8vw, 10px);
+            border-bottom: 1px solid var(--border); color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        .corrupt-table tr:hover td { background: rgba(255,255,255,0.03); }
+        .corrupt-table .changed { color: var(--accent-red); font-weight: 600; }
+        .corrupt-table .kept { color: var(--accent-cyan); }
+        .patching-diagram {
+            display: flex; align-items: center; gap: clamp(0.3rem, 0.8vw, 0.6rem);
+            flex-wrap: wrap; justify-content: center;
+        }
+        .patch-box {
+            padding: clamp(0.3rem, 0.7vw, 0.5rem) clamp(0.5rem, 1vw, 0.8rem);
+            border-radius: 6px; font-family: var(--font-mono);
+            font-size: clamp(0.55rem, 0.8vw, 0.7rem); text-align: center; line-height: 1.3;
+        }
+        /* Circuit graph */
+        .circuit-legend {
+            display: flex; flex-wrap: wrap; gap: clamp(0.4rem, 1vw, 0.8rem);
+            justify-content: center; padding: clamp(0.2rem, 0.5vw, 0.4rem) 0;
+        }
+        .circuit-legend-item {
+            display: flex; align-items: center; gap: 4px;
+            font-family: var(--font-mono); font-size: clamp(0.5rem, 0.75vw, 0.65rem); color: var(--text-secondary);
+        }
+        .circuit-legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .circuit-legend-line { width: 16px; height: 2px; border-radius: 1px; }
+    </style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<nav class="nav-dots" id="navDots"></nav>
+
+<!-- SLIDE 1: TITLE -->
+<section class="slide title-slide grid-bg mesh-1" id="slide-0">
+    <div class="slide-content">
+        <div class="title-tag reveal">MECHANISTIC INTERPRETABILITY</div>
+        <h1 class="reveal" style="max-width:900px;">
+            基于 <span class="cyan">DRO</span> 的鲁棒电路发现
+        </h1>
+        <p class="title-subtitle reveal">
+            Distributionally Robust Optimization over Corruptions<br>for Faithful Circuit Discovery
+        </p>
+        <p class="title-meta reveal">组内汇报 · 2026.03</p>
+    </div>
+    <div class="slide-counter">01 / 17</div>
+</section>
+
+<!-- SLIDE 2: MOTIVATION -->
+<section class="slide grid-bg mesh-2" id="slide-1">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">MOTIVATION</div>
+        <h2 class="reveal">电路发现对 corruption 选择<span class="red">高度敏感</span></h2>
+        <p class="reveal" style="max-width:700px;">
+            Activation patching 需要 clean / corrupted 输入对来定位关键 edge。但 <strong style="color:var(--text-primary)">不同 corruption 会发现完全不同的电路</strong>，在其他 corruption 下可能完全失效。
+        </p>
+        <div class="two-col reveal" style="margin-top:var(--content-gap);">
+            <div class="card">
+                <h3 style="margin-bottom:8px;">Naive 方法</h3>
+                <p>只用<strong class="red">单一 corruption</strong> 做 scoring</p>
+                <p style="margin-top:6px;font-family:var(--font-mono);font-size:var(--small-size);">
+                    score(e) = attr(e; x, <span class="red">c_single</span>)
+                </p>
+                <div class="metric-badge negative" style="margin-top:8px;">worst-case: -112.6%</div>
+            </div>
+            <div class="card" style="border-color:rgba(0,229,200,0.2);">
+                <h3 style="margin-bottom:8px;">DRO 方法</h3>
+                <p>对每种 corruption <strong class="cyan">独立 scoring</strong>，再聚合</p>
+                <p style="margin-top:6px;font-family:var(--font-mono);font-size:var(--small-size);">
+                    score(e) = <span class="cyan">agg</span><sub>c</sub> attr(e; x, c)
+                </p>
+                <div class="metric-badge positive" style="margin-top:8px;">worst-case: +17.0%</div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-counter">02 / 17</div>
+</section>
+
+<!-- SLIDE 3: FORMULATION -->
+<section class="slide grid-bg mesh-1" id="slide-2">
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center;">
+        <div class="label reveal">FORMULATION</div>
+        <h2 class="reveal">DRO 电路发现框架</h2>
+        <div class="formula-box reveal-scale" style="max-width:700px;margin:0 auto;">
+            min<sub style="font-size:0.7em">S: |S| &le; n</sub>&nbsp;
+            E<sub>x</sub> [
+            <span class="cyan" style="font-weight:600;">agg</span><sub>c&isin;C</sub>&nbsp;
+            l( f<sub>S</sub>(x), f(x); c ) ]
+        </div>
+        <div class="reveal" style="max-width:600px;">
+            <p style="margin-bottom:var(--content-gap);">三步流程：</p>
+            <div class="flow-row">
+                <div class="flow-box" style="background:var(--accent-cyan-dim);color:var(--accent-cyan);">
+                    1. 独立 Score<br><span style="font-size:0.8em;opacity:0.7">每种 c 用全量 N 样本</span>
+                </div>
+                <span class="flow-arrow">&rarr;</span>
+                <div class="flow-box" style="background:rgba(91,141,239,0.2);color:var(--accent-blue);">
+                    2. DRO 聚合<br><span style="font-size:0.8em;opacity:0.7">Max / CVaR / Softmax</span>
+                </div>
+                <span class="flow-arrow">&rarr;</span>
+                <div class="flow-box" style="background:rgba(167,139,250,0.15);color:var(--accent-purple);">
+                    3. Top-n 选边<br><span style="font-size:0.8em;opacity:0.7">构建稀疏电路</span>
+                </div>
+            </div>
+        </div>
+        <div class="callout reveal" style="max-width:600px;margin:0 auto;text-align:left;">
+            <p style="font-size:var(--small-size);">
+                <strong>关键区别：</strong>标准做法在 sample level 混合 corruption，DRO 在 corruption level 显式聚合 — 信噪比更高，worst-case 性能更优。
+            </p>
+        </div>
+    </div>
+    <div class="slide-counter">03 / 17</div>
+</section>
+
+<!-- SLIDE 4: AGGREGATION METHODS -->
+<section class="slide grid-bg mesh-2" id="slide-3">
+    <div class="slide-content" style="gap:clamp(0.4rem,1vw,0.8rem);align-items:center;">
+        <div class="label reveal">AGGREGATION METHODS</div>
+        <h2 class="reveal">三种 DRO 聚合方式</h2>
+        <p class="reveal dim" style="font-size:var(--small-size);text-align:center;">
+            给定 K 种 corruption 下的边重要性分数 |s<sub>e</sub><sup>(1)</sup>|, …, |s<sub>e</sub><sup>(K)</sup>|，如何聚合为一个最终分数？
+        </p>
+
+        <!-- Three aggregator cards in a row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(0.5rem,1.2vw,1rem);width:100%;max-width:960px;" class="reveal">
+            <!-- Max -->
+            <div class="card" style="border-top:3px solid var(--accent-red);text-align:center;">
+                <p style="font-family:var(--font-display);font-weight:700;color:var(--accent-red);font-size:var(--h3-size);margin-bottom:6px;">Max</p>
+                <div class="formula-box" style="border-left:none;border-radius:8px;padding:clamp(0.4rem,1vw,0.8rem);margin-bottom:8px;font-size:var(--mono-size);">
+                    s<sub>e</sub> = max<sub>k</sub> |s<sub>e</sub><sup>(k)</sup>|
+                </div>
+                <p style="font-size:var(--small-size);color:var(--text-secondary);line-height:1.5;">
+                    <strong style="color:var(--text-primary);">纯 worst-case</strong><br>
+                    只要在<em>任何一种</em> corruption 下重要，就保留该边
+                </p>
+                <div style="margin-top:8px;padding:6px 10px;background:var(--accent-red-dim);border-radius:6px;">
+                    <p style="font-size:var(--small-size);font-family:var(--font-mono);color:var(--accent-red);">
+                        → 电路偏大，覆盖所有场景
+                    </p>
+                </div>
+            </div>
+
+            <!-- CVaR -->
+            <div class="card" style="border-top:3px solid var(--accent-cyan);text-align:center;">
+                <p style="font-family:var(--font-display);font-weight:700;color:var(--accent-cyan);font-size:var(--h3-size);margin-bottom:6px;">CVaR(α)</p>
+                <div class="formula-box" style="border-left:none;border-radius:8px;padding:clamp(0.4rem,1vw,0.8rem);margin-bottom:8px;font-size:var(--mono-size);">
+                    s<sub>e</sub> = <span style="font-size:0.85em;">1/⌈αK⌉</span> <span style="font-size:1.1em;">Σ</span><sub>top-⌈αK⌉</sub> |s<sub>e</sub><sup>(k)</sup>|
+                </div>
+                <p style="font-size:var(--small-size);color:var(--text-secondary);line-height:1.5;">
+                    <strong style="color:var(--text-primary);">tail-risk 聚焦</strong><br>
+                    取最差 ⌈αK⌉ 种 corruption 的均值<br>
+                    α→0: max &nbsp;|&nbsp; α=1: mean
+                </p>
+                <div style="margin-top:8px;padding:6px 10px;background:var(--accent-cyan-dim);border-radius:6px;">
+                    <p style="font-size:var(--small-size);font-family:var(--font-mono);color:var(--accent-cyan);">
+                        → α=0.5 为最优权衡点 ★
+                    </p>
+                </div>
+            </div>
+
+            <!-- Softmax -->
+            <div class="card" style="border-top:3px solid var(--accent-orange);text-align:center;">
+                <p style="font-family:var(--font-display);font-weight:700;color:var(--accent-orange);font-size:var(--h3-size);margin-bottom:6px;">Softmax(τ)</p>
+                <div class="formula-box" style="border-left:none;border-radius:8px;padding:clamp(0.4rem,1vw,0.8rem);margin-bottom:8px;font-size:var(--mono-size);">
+                    s<sub>e</sub> = <span style="font-size:1.1em;">Σ</span><sub>k</sub> <span style="font-size:0.85em;">softmax(|s<sup>(k)</sup>|/τ)</span><sub>k</sub> · |s<sub>e</sub><sup>(k)</sup>|
+                </div>
+                <p style="font-size:var(--small-size);color:var(--text-secondary);line-height:1.5;">
+                    <strong style="color:var(--text-primary);">可微加权</strong><br>
+                    高分 corruption 获得更大权重<br>
+                    τ→0: max &nbsp;|&nbsp; τ→∞: mean
+                </p>
+                <div style="margin-top:8px;padding:6px 10px;background:var(--accent-orange-dim);border-radius:6px;">
+                    <p style="font-size:var(--small-size);font-family:var(--font-mono);color:var(--accent-orange);">
+                        → 连续可微，适合梯度优化
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spectrum bar -->
+        <div class="reveal" style="width:100%;max-width:800px;margin:0 auto;">
+            <div style="position:relative;height:48px;background:linear-gradient(90deg, var(--accent-red) 0%, var(--accent-purple) 30%, var(--accent-cyan) 50%, var(--accent-blue) 75%, var(--accent-orange) 100%);border-radius:10px;overflow:hidden;opacity:0.85;">
+                <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 clamp(0.5rem,2vw,1.5rem);">
+                    <span style="font-family:var(--font-mono);font-size:var(--small-size);color:#fff;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,0.5);">← worst-case (max)</span>
+                    <span style="font-family:var(--font-mono);font-size:var(--small-size);color:#fff;font-weight:600;text-shadow:0 1px 4px rgba(0,0,0,0.5);">average-case (mean) →</span>
+                </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-family:var(--font-mono);font-size:clamp(0.5rem,0.7vw,0.65rem);color:var(--text-dim);">
+                <span>max / CVaR(1/K) / softmax(τ→0)</span>
+                <span>CVaR(0.5)</span>
+                <span>CVaR(1) / softmax(τ→∞) / mean</span>
+            </div>
+        </div>
+
+        <div class="callout reveal" style="max-width:700px;margin:0 auto;text-align:left;">
+            <p style="font-size:var(--small-size);">
+                <strong>统一视角：</strong>三种方法都在 max (worst-case) 和 mean (average-case) 之间插值。
+                CVaR 通过 α 离散控制 top-K 比例，Softmax 通过温度 τ 连续控制权重分布。
+                实验表明 <span class="cyan">CVaR(α=0.5)</span> 在 worst-case faithfulness 上取得最优。
+            </p>
+        </div>
+    </div>
+    <div class="slide-counter">04 / 17</div>
+</section>
+
+<!-- SLIDE 5: EXPERIMENT SETUP -->
+<section class="slide grid-bg" id="slide-4">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">EXPERIMENT SETUP</div>
+        <h2 class="reveal">实验配置</h2>
+        <div class="two-col reveal">
+            <div>
+                <div class="card" style="margin-bottom:var(--content-gap);">
+                    <h3 style="font-size:var(--body-size);color:var(--text-dim);margin-bottom:6px;">模型 &amp; 任务</h3>
+                    <p style="color:var(--text-primary);"><strong>GPT-2 small</strong> · 12L x 12H</p>
+                    <p><strong style="color:var(--text-primary);">IOI</strong> (间接宾语识别) · N=200</p>
+                    <p style="font-family:var(--font-mono);font-size:var(--small-size);color:var(--text-dim);margin-top:4px;">32,347 candidate edges</p>
+                </div>
+                <div class="card">
+                    <h3 style="font-size:var(--body-size);color:var(--text-dim);margin-bottom:6px;">Scoring 方法</h3>
+                    <p style="color:var(--text-primary);"><strong>EAP-IG</strong> (Edge Attribution Patching)</p>
+                    <p>单次 fwd/bwd pass per corruption</p>
+                </div>
+            </div>
+            <div>
+                <div class="card" style="margin-bottom:var(--content-gap);">
+                    <h3 style="font-size:var(--body-size);color:var(--text-dim);margin-bottom:6px;">K=5 Corruption 家族</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                        <span class="metric-badge neutral">S2_IO</span>
+                        <span class="metric-badge neutral">IO_RAND</span>
+                        <span class="metric-badge neutral">S_RAND</span>
+                        <span class="metric-badge neutral">S1_RAND</span>
+                        <span class="metric-badge neutral">IO_S1</span>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 style="font-size:var(--body-size);color:var(--text-dim);margin-bottom:6px;">Edge Budget (8 级)</h3>
+                    <p style="font-family:var(--font-mono);color:var(--text-primary);font-size:var(--small-size);">
+                        25 · 50 · 100 · 200 · 400 · 800 · 1600 · 3200
+                    </p>
+                    <p style="font-size:var(--small-size);margin-top:4px;">占比 0.08% ~ 9.9% of total edges</p>
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="text-align:center;">
+            <div class="stat-row">
+                <div class="stat-item">
+                    <div class="stat-value cyan" data-count="120">0</div>
+                    <div class="stat-label">circuits built</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value blue" data-count="600">0</div>
+                    <div class="stat-label">evaluations</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value purple" data-count="10">0</div>
+                    <div class="stat-label">aggregators</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-counter">05 / 17</div>
+</section>
+
+<!-- SLIDE 6: COMPLETE PIPELINE -->
+<section class="slide grid-bg mesh-2" id="slide-5">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">METHODOLOGY</div>
+        <h2 class="reveal">完整实验流程：找 Circuit → 验 Circuit</h2>
+        <div class="pipeline-wrap reveal-scale">
+            <!-- Phase 1: Finding -->
+            <div class="pipeline-phase" style="border-color:rgba(0,229,200,0.2);">
+                <h3 style="font-size:var(--body-size);color:var(--accent-cyan);margin-bottom:8px;">Phase 1: 找 Circuit</h3>
+                <div class="pipeline-step" style="background:rgba(0,229,200,0.06);">
+                    <span class="step-num" style="background:var(--accent-cyan);color:#0b0e17;">1</span>
+                    <span style="color:var(--text-primary);">K=5 corruptions &times; N=200 样本<br>独立运行 <strong>EAP-IG</strong> scoring</span>
+                </div>
+                <div class="pipeline-arrow">&darr;</div>
+                <div class="pipeline-step" style="background:rgba(91,141,239,0.08);">
+                    <span class="step-num" style="background:var(--accent-blue);color:#0b0e17;">2</span>
+                    <span style="color:var(--text-primary);">得到 <strong>K=5 个 score 向量</strong><br>每个维度 = 32,347 条边</span>
+                </div>
+                <div class="pipeline-arrow">&darr;</div>
+                <div class="pipeline-step" style="background:rgba(167,139,250,0.08);">
+                    <span class="step-num" style="background:var(--accent-purple);color:#0b0e17;">3</span>
+                    <span style="color:var(--text-primary);"><strong>DRO 聚合</strong>: Max / CVaR / Softmax<br>K 个 score &rarr; 1 个综合 score</span>
+                </div>
+                <div class="pipeline-arrow">&darr;</div>
+                <div class="pipeline-step" style="background:rgba(52,211,153,0.08);">
+                    <span class="step-num" style="background:var(--accent-green);color:#0b0e17;">4</span>
+                    <span style="color:var(--text-primary);"><strong>Top-n 选边</strong>: 按综合 score 排序<br>选前 n 条边 &rarr; 得到 Circuit</span>
+                </div>
+            </div>
+            <!-- Connector -->
+            <div class="pipeline-connector">&rArr;</div>
+            <!-- Phase 2: Verification -->
+            <div class="pipeline-phase" style="border-color:rgba(255,159,67,0.2);">
+                <h3 style="font-size:var(--body-size);color:var(--accent-orange);margin-bottom:8px;">Phase 2: 验 Circuit</h3>
+                <div class="pipeline-step" style="background:rgba(255,159,67,0.06);">
+                    <span class="step-num" style="background:var(--accent-orange);color:#0b0e17;">5</span>
+                    <span style="color:var(--text-primary);">Circuit 在<strong>全部 K=5 种</strong><br>corruption 下分别推理</span>
+                </div>
+                <div class="pipeline-arrow">&darr;</div>
+                <div class="pipeline-step" style="background:rgba(255,77,106,0.06);">
+                    <span class="step-num" style="background:var(--accent-red);color:#0b0e17;">6</span>
+                    <span style="color:var(--text-primary);">计算每种 corruption 的<br><strong>Faithfulness %</strong> 值</span>
+                </div>
+                <div class="pipeline-arrow">&darr;</div>
+                <div class="pipeline-step" style="background:rgba(91,141,239,0.06);">
+                    <span class="step-num" style="background:var(--accent-blue);color:#0b0e17;">7</span>
+                    <span style="color:var(--text-primary);">汇报鲁棒性指标:<br><strong class="red">worst</strong> / <strong class="cyan">mean</strong> / <strong class="orange">gap</strong></span>
+                </div>
+                <div class="pipeline-arrow" style="opacity:0;">&darr;</div>
+                <div class="callout" style="padding:6px 10px;">
+                    <p style="font-size:var(--small-size);">
+                        关键: 用<strong>找时未使用过</strong>的 corruption 组合来验证 &mdash; 衡量真实泛化能力
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="reveal" style="text-align:center;">
+            <p class="dim" style="font-family:var(--font-mono);font-size:var(--small-size);">
+                15 methods (5 naive + 10 DRO) &times; 8 budgets = 120 circuits &rarr; 600 evaluations
+            </p>
+        </div>
+    </div>
+    <div class="slide-counter">06 / 17</div>
+</section>
+
+<!-- SLIDE 7: FAITHFULNESS METRIC -->
+<section class="slide grid-bg mesh-1" id="slide-6">
+    <div class="slide-content" style="gap:var(--content-gap);align-items:center;text-align:center;">
+        <div class="label reveal">METRIC</div>
+        <h2 class="reveal">Faithfulness %</h2>
+        <div class="formula-box reveal-scale" style="max-width:600px;margin:0 auto;">
+            Faithfulness = <span class="cyan">logit_diff<sub>circuit</sub></span> / logit_diff<sub>baseline</sub> x 100%
+        </div>
+        <div class="reveal" style="display:flex;gap:clamp(0.5rem,2vw,1.5rem);flex-wrap:wrap;justify-content:center;">
+            <div class="card" style="text-align:center;flex:1;min-width:130px;">
+                <div style="font-family:var(--font-mono);font-size:clamp(1.5rem,3vw,2.5rem);font-weight:700;color:var(--accent-cyan);">100%</div>
+                <p>完美复现</p>
+            </div>
+            <div class="card" style="text-align:center;flex:1;min-width:130px;">
+                <div style="font-family:var(--font-mono);font-size:clamp(1.5rem,3vw,2.5rem);font-weight:700;color:var(--text-dim);">0%</div>
+                <p>等同随机</p>
+            </div>
+            <div class="card" style="text-align:center;flex:1;min-width:130px;">
+                <div style="font-family:var(--font-mono);font-size:clamp(1.5rem,3vw,2.5rem);font-weight:700;color:var(--accent-red);">&lt;0%</div>
+                <p>行为反转</p>
+            </div>
+        </div>
+        <p class="reveal dim" style="font-family:var(--font-mono);font-size:var(--small-size);">
+            Baseline logit_diff_loss = -1.4907 (full model, all 32,347 edges)
+        </p>
+    </div>
+    <div class="slide-counter">07 / 17</div>
+</section>
+
+<!-- SLIDE 7: EVALUATION MECHANISM + CORRUPTION VARIANTS (NEW) -->
+<section class="slide grid-bg mesh-2" id="slide-7">
+    <div class="slide-content" style="gap:clamp(0.3rem,0.8vw,0.5rem);">
+        <div class="label reveal">EVALUATION MECHANISM</div>
+        <h2 class="reveal">Circuit 评估：Activation Patching + Corruption 变体</h2>
+
+        <!-- Top: Patching mechanism -->
+        <div class="reveal" style="max-width:800px;margin:0 auto;">
+            <div class="card" style="padding:clamp(0.5rem,1.2vw,0.8rem);">
+                <p style="font-size:var(--small-size);color:var(--text-dim);margin-bottom:6px;"><strong style="color:var(--text-primary);">Activation Patching 原理</strong> — 用 corrupted 激活替换 circuit 外的边</p>
+                <div class="patching-diagram">
+                    <div class="patch-box" style="background:rgba(0,229,200,0.1);border:1px solid rgba(0,229,200,0.3);">
+                        <span style="color:var(--accent-cyan);">Clean 输入</span><br>
+                        <span style="color:var(--text-dim);">全部 N=200 样本</span>
+                    </div>
+                    <span style="color:var(--text-dim);font-size:12px;">+</span>
+                    <div class="patch-box" style="background:rgba(255,77,106,0.1);border:1px solid rgba(255,77,106,0.3);">
+                        <span style="color:var(--accent-red);">Corrupted 输入</span><br>
+                        <span style="color:var(--text-dim);">某种 corruption 变体</span>
+                    </div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="patch-box" style="background:rgba(91,141,239,0.1);border:1px solid rgba(91,141,239,0.3);">
+                        <span style="color:var(--accent-blue);">边 &isin; Circuit</span><br>
+                        <span style="color:var(--accent-cyan);">保留 clean 激活 &check;</span>
+                    </div>
+                    <span style="color:var(--text-dim);font-size:12px;">|</span>
+                    <div class="patch-box" style="background:rgba(255,77,106,0.08);border:1px solid rgba(255,77,106,0.2);">
+                        <span style="color:var(--text-dim);">边 &notin; Circuit</span><br>
+                        <span style="color:var(--accent-red);">替换为 corrupted &cross;</span>
+                    </div>
+                    <span class="flow-arrow">&rarr;</span>
+                    <div class="patch-box" style="background:rgba(167,139,250,0.12);border:1px solid rgba(167,139,250,0.3);">
+                        <span style="color:var(--accent-purple);">logit<sub>IO</sub> - logit<sub>S</sub></span><br>
+                        <span style="color:var(--text-dim);">取负 &rarr; loss</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom: Corruption variants example -->
+        <div class="reveal-scale" style="max-width:820px;margin:0 auto;width:100%;">
+            <p style="font-size:var(--small-size);color:var(--text-dim);margin-bottom:4px;">
+                <strong style="color:var(--text-primary);">同一个 clean 句子下的 5 种 corruption 变体</strong> &mdash;
+                Clean: &ldquo;When <span class="cyan">Mary</span> and <span class="red">John</span> went to the store, <span class="red">John</span> gave a drink to <span class="dim">___</span>&rdquo;
+                &ensp;(IO=<span class="cyan">Mary</span>, S=<span class="red">John</span>)
+            </p>
+            <table class="corrupt-table">
+                <thead>
+                    <tr>
+                        <th>Corruption</th>
+                        <th>操作</th>
+                        <th>Corrupted 句子</th>
+                        <th>效果</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="color:var(--accent-orange);font-weight:600;">S2_IO</td>
+                        <td>S2 &rarr; IO</td>
+                        <td>When <span class="kept">Mary</span> and John ..., <span class="changed">Mary</span> gave a drink to ___</td>
+                        <td style="font-size:clamp(0.48rem,0.7vw,0.62rem);">S2 位置变成 IO 名字</td>
+                    </tr>
+                    <tr>
+                        <td style="color:var(--accent-red);font-weight:600;">IO_RAND</td>
+                        <td>IO &rarr; Random</td>
+                        <td>When <span class="changed">Alice</span> and John ..., John gave a drink to ___</td>
+                        <td style="font-size:clamp(0.48rem,0.7vw,0.62rem);">IO 换随机名 <span class="dim">(最难)</span></td>
+                    </tr>
+                    <tr>
+                        <td style="color:var(--accent-orange);font-weight:600;">S_RAND</td>
+                        <td>S &rarr; Random</td>
+                        <td>When Mary and <span class="changed">Bob</span> ..., <span class="changed">Bob</span> gave a drink to ___</td>
+                        <td style="font-size:clamp(0.48rem,0.7vw,0.62rem);">所有 S 换随机名</td>
+                    </tr>
+                    <tr>
+                        <td style="color:var(--accent-orange);font-weight:600;">S1_RAND</td>
+                        <td>S1 &rarr; Random</td>
+                        <td>When Mary and <span class="changed">Bob</span> ..., <span class="kept">John</span> gave a drink to ___</td>
+                        <td style="font-size:clamp(0.48rem,0.7vw,0.62rem);">仅 S1 换随机名</td>
+                    </tr>
+                    <tr>
+                        <td style="color:var(--accent-blue);font-weight:600;">IO_S1</td>
+                        <td>IO &rarr; S1</td>
+                        <td>When <span class="changed">John</span> and John ..., John gave a drink to ___</td>
+                        <td style="font-size:clamp(0.48rem,0.7vw,0.62rem);">IO 变成 S 的名字</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="callout reveal" style="max-width:700px;margin:0 auto;text-align:center;padding:5px 12px;">
+            <p style="font-size:var(--small-size);">
+                <strong>核心问题：</strong>同一个 circuit 在不同 corruption 下 logit_diff_loss 差异巨大 &mdash; IO_RAND 几乎总是 <span class="red">worst case</span>，因为它最彻底地破坏了间接宾语的信息
+            </p>
+        </div>
+    </div>
+    <div class="slide-counter">08 / 17</div>
+</section>
+
+<!-- SLIDE 8: MAIN RESULT CHART -->
+<section class="slide grid-bg" id="slide-8">
+    <div class="slide-content" style="gap:clamp(0.3rem,0.8vw,0.6rem);">
+        <div class="label reveal">MAIN RESULT</div>
+        <h2 class="reveal">Worst-case Faithfulness vs Edge Budget</h2>
+        <div class="chart-container reveal-scale" id="mainChart" style="flex:1;min-height:0;">
+            <div class="chart-tooltip" id="mainTooltip"></div>
+            <svg id="mainChartSvg" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="chart-legend reveal">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-red);"></div>Best-naive</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange);"></div>DRO-mean</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-cyan);"></div>DRO-CVaR(0.5)</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-blue);"></div>DRO-max</div>
+        </div>
+    </div>
+    <div class="slide-counter">09 / 17</div>
+</section>
+
+<!-- SLIDE 9: MIXED CORRUPTION -->
+<section class="slide grid-bg mesh-2" id="slide-9">
+    <div class="slide-content" style="gap:clamp(0.3rem,0.8vw,0.6rem);">
+        <div class="label reveal">KEY FINDING</div>
+        <h2 class="reveal">标准做法（Mixed）远不如 DRO</h2>
+        <div class="chart-container reveal-scale" id="mixedChart" style="flex:1;min-height:0;">
+            <div class="chart-tooltip" id="mixedTooltip"></div>
+            <svg id="mixedChartSvg" viewBox="0 0 800 380" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="chart-legend reveal">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-red);"></div>Best-naive</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#e879a0;"></div>Mixed</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange);"></div>DRO-mean</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-cyan);"></div>DRO-CVaR(0.5)</div>
+        </div>
+    </div>
+    <div class="slide-counter">10 / 17</div>
+</section>
+
+<!-- SLIDE 10: WHY MIXED FAILS -->
+<section class="slide grid-bg mesh-1" id="slide-10">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">ANALYSIS</div>
+        <h2 class="reveal">为什么 Mixed 理论上等于 Mean 却表现更差？</h2>
+        <div class="two-col reveal">
+            <div>
+                <div class="callout-red callout" style="margin-bottom:var(--content-gap);">
+                    <p><strong>Mixed (标准做法)</strong></p>
+                    <p style="font-size:var(--small-size);color:var(--text-secondary);margin-top:4px;">
+                        N=200 样本分给 K=5 种 corruption<br>
+                        每种只有 <strong class="red">~40 个</strong>样本参与 scoring<br>
+                        &rarr; EAP score 估计噪声大<br>
+                        &rarr; 选出的 edge 质量低
+                    </p>
+                </div>
+                <div class="card">
+                    <p style="font-family:var(--font-mono);font-size:var(--small-size);">
+                        n=200: <span class="red">-51.0%</span>
+                    </p>
+                    <p style="font-size:var(--small-size);color:var(--text-dim);margin-top:4px;">worst-case 性能差</p>
+                </div>
+            </div>
+            <div>
+                <div class="callout" style="margin-bottom:var(--content-gap);">
+                    <p><strong>DRO-mean (corruption-level)</strong></p>
+                    <p style="font-size:var(--small-size);color:var(--text-secondary);margin-top:4px;">
+                        每种 corruption 独立用 <strong class="cyan">200 个</strong>样本<br>
+                        信噪比高 &rarr; score 估计准确<br>
+                        &rarr; 在 corruption 维度聚合<br>
+                        &rarr; worst-case 性能更优
+                    </p>
+                </div>
+                <div class="card" style="border-color:rgba(0,229,200,0.2);">
+                    <p style="font-family:var(--font-mono);font-size:var(--small-size);">
+                        n=200: <span class="cyan">+13.5%</span>
+                    </p>
+                    <p style="font-size:var(--small-size);color:var(--text-dim);margin-top:4px;">worst-case 显著提升</p>
+                </div>
+            </div>
+        </div>
+        <div class="callout reveal" style="text-align:center;">
+            <p style="font-size:var(--body-size);">
+                差距 <span class="mono" style="font-size:clamp(1rem,2vw,1.5rem);font-weight:700;color:var(--accent-cyan);">64.5 pp</span>
+                &mdash; 仅 "先分别 score 再聚合" 就显著优于 "混合后 score"
+            </p>
+        </div>
+    </div>
+    <div class="slide-counter">11 / 17</div>
+</section>
+
+<!-- SLIDE 11: AGGREGATOR SPECTRUM -->
+<section class="slide grid-bg" id="slide-11">
+    <div class="slide-content" style="gap:clamp(0.3rem,0.8vw,0.6rem);">
+        <div class="label reveal">AGGREGATOR SPECTRUM</div>
+        <h2 class="reveal">CVaR(0.5) 是最佳 robustness-efficiency 权衡点</h2>
+        <p class="reveal dim" style="font-size:var(--small-size);text-align:center;">n=200 · 从 worst-case (max) 到 average-case (mean) 的连续谱</p>
+        <div class="chart-container reveal-scale" id="spectrumChart" style="flex:1;min-height:0;">
+            <div class="chart-tooltip" id="spectrumTooltip"></div>
+            <svg id="spectrumSvg" viewBox="0 0 800 340" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="chart-legend reveal">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-cyan);"></div>Worst-case %</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange);"></div>Mean %</div>
+            <div class="legend-item" style="color:var(--accent-purple);">&#9733; = sweet spot</div>
+        </div>
+    </div>
+    <div class="slide-counter">12 / 17</div>
+</section>
+
+<!-- SLIDE 12: PER-CORRUPTION HEATMAP -->
+<section class="slide grid-bg mesh-2" id="slide-12">
+    <div class="slide-content" style="gap:clamp(0.3rem,0.8vw,0.6rem);">
+        <div class="label reveal">PER-CORRUPTION ANALYSIS</div>
+        <h2 class="reveal">各 corruption 下的 Faithfulness 热力图</h2>
+        <p class="reveal dim" style="font-size:var(--small-size);text-align:center;">
+            n=200 · 悬停查看详情 · 颜色越绿 = faithfulness 越高
+        </p>
+        <div class="reveal-scale" id="heatmapContainer" style="flex:1;min-height:0;display:flex;align-items:center;justify-content:center;"></div>
+    </div>
+    <div class="slide-counter">13 / 17</div>
+</section>
+
+<!-- SLIDE 13: CIRCUIT ARCHITECTURE -->
+<section class="slide grid-bg mesh-1" id="slide-13">
+    <div class="slide-content" style="gap:clamp(0.2rem,0.6vw,0.4rem);">
+        <div class="label reveal">DISCOVERED CIRCUIT</div>
+        <h2 class="reveal">DRO 发现的 IOI 电路结构 <span class="dim" style="font-size:var(--body-size);">(Top-20 edges, DRO-Max)</span></h2>
+        <div class="chart-container reveal-scale" id="circuitChart" style="flex:1;min-height:0;">
+            <div class="chart-tooltip" id="circuitTooltip"></div>
+            <svg id="circuitSvg" viewBox="0 0 960 400" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="circuit-legend reveal">
+            <div class="circuit-legend-item"><div class="circuit-legend-dot" style="background:#5b8def;"></div>Duplicate Token</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-dot" style="background:#a78bfa;"></div>Induction</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-dot" style="background:#ff6b8a;"></div>S-Inhibition</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-dot" style="background:#00e5c8;"></div>Name Mover</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-dot" style="background:#ff9f43;"></div>Neg. Name Mover / MLP</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-line" style="background:rgba(0,229,200,0.6);height:3px;"></div>Strong edge</div>
+            <div class="circuit-legend-item"><div class="circuit-legend-line" style="background:rgba(0,229,200,0.25);"></div>Weak edge</div>
+        </div>
+    </div>
+    <div class="slide-counter">14 / 17</div>
+</section>
+
+<!-- SLIDE 14: GAP ANALYSIS -->
+<section class="slide grid-bg mesh-2" id="slide-14">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">UNIFORMITY</div>
+        <h2 class="reveal">DRO 电路在各 corruption 下更均匀</h2>
+        <p class="reveal" style="font-size:var(--small-size);color:var(--text-dim);text-align:center;">
+            Gap = max(faithfulness) - min(faithfulness) across corruptions · 越小越均匀
+        </p>
+        <div class="reveal-scale" style="overflow:auto;">
+            <table class="comp-table" style="max-width:700px;margin:0 auto;">
+                <thead>
+                    <tr>
+                        <th>Budget</th>
+                        <th>Best-naive gap</th>
+                        <th>DRO-CVaR(0.5) gap</th>
+                        <th>DRO-mean gap</th>
+                        <th>改善</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>200</td><td class="worst">190.2 pp</td><td class="best">169.9 pp</td><td>173.6 pp</td><td class="best">-20.3</td></tr>
+                    <tr><td>400</td><td class="worst">151.4 pp</td><td class="best">148.4 pp</td><td>138.0 pp</td><td class="best">-13.4</td></tr>
+                    <tr><td>800</td><td class="worst">111.5 pp</td><td class="best">90.2 pp</td><td>86.3 pp</td><td class="best">-25.2</td></tr>
+                    <tr><td>1600</td><td class="worst">74.7 pp</td><td class="best">50.3 pp</td><td>48.6 pp</td><td class="best">-26.1</td></tr>
+                    <tr><td>3200</td><td class="worst">41.6 pp</td><td class="best">18.1 pp</td><td>18.8 pp</td><td class="best">-23.5</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="callout reveal" style="max-width:600px;margin:0 auto;text-align:center;">
+            <p style="font-size:var(--body-size);">DRO 电路不仅 worst-case 更好，各 corruption 间表现也更<span class="cyan">均衡</span></p>
+        </div>
+    </div>
+    <div class="slide-counter">15 / 17</div>
+</section>
+
+<!-- SLIDE 15: KEY INSIGHTS -->
+<section class="slide grid-bg mesh-1" id="slide-15">
+    <div class="slide-content" style="gap:var(--content-gap);">
+        <div class="label reveal">INSIGHTS</div>
+        <h2 class="reveal">五个核心发现</h2>
+        <div style="display:flex;flex-direction:column;gap:clamp(0.3rem,0.8vw,0.6rem);max-width:750px;">
+            <div class="card reveal" style="display:flex;align-items:flex-start;gap:12px;">
+                <span style="font-family:var(--font-mono);color:var(--accent-red);font-weight:700;font-size:var(--h3-size);min-width:24px;">1</span>
+                <div>
+                    <p style="color:var(--text-primary);font-weight:500;">Naive 方法存在严重 corruption 偏差</p>
+                    <p style="font-size:var(--small-size);">worst-case 可达 -112.6%，在非目标 corruption 下完全失效</p>
+                </div>
+            </div>
+            <div class="card reveal" style="display:flex;align-items:flex-start;gap:12px;">
+                <span style="font-family:var(--font-mono);color:var(--accent-cyan);font-weight:700;font-size:var(--h3-size);min-width:24px;">2</span>
+                <div>
+                    <p style="color:var(--text-primary);font-weight:500;">CVaR(0.5) 是最优权衡点</p>
+                    <p style="font-size:var(--small-size);">在 max-mean 连续谱中，关注 top-50% 最差 corruption 取得最佳 worst-case</p>
+                </div>
+            </div>
+            <div class="card reveal" style="display:flex;align-items:flex-start;gap:12px;">
+                <span style="font-family:var(--font-mono);color:var(--accent-orange);font-weight:700;font-size:var(--h3-size);min-width:24px;">3</span>
+                <div>
+                    <p style="color:var(--text-primary);font-weight:500;">Mixed corruption (标准做法) 远不如 DRO-mean</p>
+                    <p style="font-size:var(--small-size);">样本稀释导致 score 噪声大，worst-case faithfulness 差距 64.5pp</p>
+                </div>
+            </div>
+            <div class="card reveal" style="display:flex;align-items:flex-start;gap:12px;">
+                <span style="font-family:var(--font-mono);color:var(--accent-blue);font-weight:700;font-size:var(--h3-size);min-width:24px;">4</span>
+                <div>
+                    <p style="color:var(--text-primary);font-weight:500;">大 budget 下所有方法趋于收敛</p>
+                    <p style="font-size:var(--small-size);">n=3200 (~10% edges) 时差距缩小到 3pp，但小 budget 时方法选择至关重要</p>
+                </div>
+            </div>
+            <div class="card reveal" style="display:flex;align-items:flex-start;gap:12px;">
+                <span style="font-family:var(--font-mono);color:var(--accent-green);font-weight:700;font-size:var(--h3-size);min-width:24px;">5</span>
+                <div>
+                    <p style="color:var(--text-primary);font-weight:500;">DRO 电路恢复了已知 IOI 电路结构</p>
+                    <p style="font-size:var(--small-size);">Name Movers, S-Inhibition, Induction, Duplicate Token Heads 均被发现</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="slide-counter">16 / 17</div>
+</section>
+
+<!-- SLIDE 16: CONCLUSION -->
+<section class="slide title-slide grid-bg mesh-1" id="slide-16">
+    <div class="slide-content">
+        <div class="label reveal">CONCLUSION</div>
+        <h1 class="reveal" style="max-width:800px;font-size:clamp(1.4rem,4vw,3rem);">
+            "先分别 score，再 <span class="cyan">DRO 聚合</span>"
+        </h1>
+        <p class="title-subtitle reveal">一个简单的范式转换，带来显著的鲁棒性提升</p>
+        <div class="reveal" style="display:flex;gap:clamp(0.5rem,2vw,1.5rem);flex-wrap:wrap;justify-content:center;margin-top:var(--content-gap);">
+            <div class="card" style="text-align:center;min-width:140px;">
+                <div class="stat-value cyan" style="font-size:clamp(1.2rem,2.5vw,2rem);">+21.2pp</div>
+                <div class="stat-label">worst-case 提升 (n=200)</div>
+            </div>
+            <div class="card" style="text-align:center;min-width:140px;">
+                <div class="stat-value orange" style="font-size:clamp(1.2rem,2.5vw,2rem);">64.5pp</div>
+                <div class="stat-label">优于标准做法 (n=200)</div>
+            </div>
+            <div class="card" style="text-align:center;min-width:140px;">
+                <div class="stat-value green" style="font-size:clamp(1.2rem,2.5vw,2rem);">5/5</div>
+                <div class="stat-label">全部 corruption 提升</div>
+            </div>
+        </div>
+        <p class="reveal title-meta" style="margin-top:var(--content-gap);">
+            GPT-2 small · IOI · 5 corruptions · 8 budgets · 120 circuits · 600 evaluations
+        </p>
+    </div>
+    <div class="slide-counter">17 / 17</div>
+</section>
+
+<script>
+/* =================== SLIDE CONTROLLER =================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.totalSlides = this.slides.length;
+        this.setupIntersectionObserver();
+        this.setupKeyboardNav();
+        this.setupTouchNav();
+        this.setupProgressBar();
+        this.setupNavDots();
+    }
+    setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                    const idx = Array.from(this.slides).indexOf(entry.target);
+                    if (idx >= 0) { this.currentSlide = idx; this.updateProgress(); this.updateNavDots(); this.animateCounters(entry.target); }
+                }
+            });
+        }, { threshold: 0.5 });
+        this.slides.forEach(s => observer.observe(s));
+    }
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+            if (['ArrowDown','ArrowRight','Space','PageDown'].includes(e.code)) { e.preventDefault(); this.goToSlide(this.currentSlide + 1); }
+            else if (['ArrowUp','ArrowLeft','PageUp'].includes(e.code)) { e.preventDefault(); this.goToSlide(this.currentSlide - 1); }
+        });
+    }
+    setupTouchNav() {
+        let startY = 0;
+        document.addEventListener('touchstart', e => { startY = e.touches[0].clientY; });
+        document.addEventListener('touchend', e => {
+            const diff = startY - e.changedTouches[0].clientY;
+            if (Math.abs(diff) > 50) this.goToSlide(this.currentSlide + (diff > 0 ? 1 : -1));
+        });
+    }
+    setupProgressBar() { this.progressBar = document.getElementById('progressBar'); this.updateProgress(); }
+    setupNavDots() {
+        const nav = document.getElementById('navDots');
+        this.slides.forEach((_, i) => {
+            const dot = document.createElement('button');
+            dot.className = 'nav-dot' + (i === 0 ? ' active' : '');
+            dot.addEventListener('click', () => this.goToSlide(i));
+            nav.appendChild(dot);
+        });
+        this.dots = nav.querySelectorAll('.nav-dot');
+    }
+    goToSlide(index) {
+        index = Math.max(0, Math.min(index, this.totalSlides - 1));
+        this.slides[index].scrollIntoView({ behavior: 'smooth' });
+    }
+    updateProgress() { this.progressBar.style.width = ((this.currentSlide) / (this.totalSlides - 1)) * 100 + '%'; }
+    updateNavDots() { if(this.dots) this.dots.forEach((d, i) => d.classList.toggle('active', i === this.currentSlide)); }
+    animateCounters(slide) {
+        slide.querySelectorAll('[data-count]').forEach(el => {
+            if (el.dataset.animated) return;
+            el.dataset.animated = '1';
+            const target = parseInt(el.dataset.count);
+            const duration = 1200, start = performance.now();
+            const step = (now) => {
+                const progress = Math.min((now - start) / duration, 1);
+                el.textContent = Math.round(target * (1 - Math.pow(1 - progress, 3)));
+                if (progress < 1) requestAnimationFrame(step);
+            };
+            requestAnimationFrame(step);
+        });
+    }
+}
+
+/* =================== SVG HELPERS =================== */
+function makeSvg(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs || {})) el.setAttribute(k, v);
+    return el;
+}
+
+function setupTooltip(svg, tooltipEl, chartEl, viewBoxW, viewBoxH, colors) {
+    svg.querySelectorAll('.chart-dot').forEach(dot => {
+        dot.addEventListener('mouseenter', () => {
+            const svgRect = svg.getBoundingClientRect();
+            const cx = parseFloat(dot.getAttribute('cx')) * svgRect.width / viewBoxW;
+            const cy = parseFloat(dot.getAttribute('cy')) * svgRect.height / viewBoxH;
+            const name = dot.dataset.name;
+            const ttLabel = document.createElement('div');
+            ttLabel.style.cssText = 'color:#4a5568;margin-bottom:2px';
+            ttLabel.textContent = name + (dot.dataset.budget ? ' \u00b7 n=' + dot.dataset.budget : '') + (dot.dataset.label ? ' \u00b7 ' + dot.dataset.label : '');
+            const ttVal = document.createElement('div');
+            ttVal.style.cssText = 'font-weight:600;color:' + (colors[name] || '#e8ecf4');
+            ttVal.textContent = dot.dataset.value + '%';
+            tooltipEl.replaceChildren(ttLabel, ttVal);
+            tooltipEl.style.left = (cx + 15) + 'px';
+            tooltipEl.style.top = (cy - 10) + 'px';
+            tooltipEl.classList.add('show');
+            dot.setAttribute('r', '7');
+        });
+        dot.addEventListener('mouseleave', () => {
+            tooltipEl.classList.remove('show');
+            dot.setAttribute('r', dot.dataset.origR || '5');
+        });
+    });
+}
+
+/* =================== CHART: MAIN RESULT =================== */
+function drawMainChart() {
+    const svg = document.getElementById('mainChartSvg');
+    const tooltip = document.getElementById('mainTooltip');
+    const budgets = [25, 50, 100, 200, 400, 800, 1600, 3200];
+    const data = {
+        'Best-naive': [-112.6, -106.3, -74.0, -4.2, 15.2, 35.9, 46.2, 63.9],
+        'DRO-mean': [-10.0, -8.6, 9.9, 13.5, 29.3, 59.3, 75.8, 91.1],
+        'DRO-CVaR(0.5)': [-11.7, -8.6, 1.2, 17.0, 26.5, 57.4, 76.0, 90.9],
+        'DRO-max': [-21.3, -28.4, -12.1, -28.3, 12.5, 45.3, 69.6, 88.0]
+    };
+    const colors = { 'Best-naive': '#ff4d6a', 'DRO-mean': '#ff9f43', 'DRO-CVaR(0.5)': '#00e5c8', 'DRO-max': '#5b8def' };
+    const W = 800, H = 380, pad = {t:25, r:30, b:45, l:60};
+    const plotW = W-pad.l-pad.r, plotH = H-pad.t-pad.b;
+    const yMin = -130, yMax = 100;
+    const xS = (i) => pad.l + (i/(budgets.length-1))*plotW;
+    const yS = (v) => pad.t + ((yMax-v)/(yMax-yMin))*plotH;
+    for (let y = -100; y <= 100; y += 25) {
+        const py = yS(y);
+        svg.appendChild(makeSvg('line', {x1:pad.l,y1:py,x2:W-pad.r,y2:py,stroke:y===0?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)','stroke-width':y===0?1.5:0.5,...(y===0?{'stroke-dasharray':'6,4'}:{})}));
+        if (y % 50 === 0) svg.appendChild(Object.assign(makeSvg('text',{x:pad.l-8,y:py+4,'text-anchor':'end',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'10'}), {textContent:y+'%'}));
+    }
+    budgets.forEach((b,i) => svg.appendChild(Object.assign(makeSvg('text',{x:xS(i),y:H-pad.b+20,'text-anchor':'middle',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'10'}),{textContent:b})));
+    svg.appendChild(Object.assign(makeSvg('text',{x:W/2,y:H-5,'text-anchor':'middle',fill:'#7a8ba8','font-family':'JetBrains Mono','font-size':'10'}),{textContent:'Edge Budget (n)'}));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(100),width:plotW,height:yS(0)-yS(100),fill:'rgba(0,229,200,0.03)'}));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(0),width:plotW,height:yS(yMin)-yS(0),fill:'rgba(255,77,106,0.03)'}));
+    Object.entries(data).forEach(([name, values]) => {
+        const c = colors[name];
+        const pts = values.map((v,i) => xS(i)+','+yS(v)).join(' ');
+        const attrs = {points:pts,fill:'none',stroke:c,'stroke-width':'2.5','stroke-linejoin':'round','stroke-linecap':'round',opacity:'0.9'};
+        if (name === 'DRO-max') attrs['stroke-dasharray'] = '6,3';
+        svg.appendChild(makeSvg('polyline', attrs));
+        values.forEach((v,i) => {
+            const dot = makeSvg('circle',{cx:xS(i),cy:yS(v),r:'5',fill:c,stroke:'#0b0e17','stroke-width':'2',class:'chart-dot',style:'cursor:pointer'});
+            dot.dataset.name = name; dot.dataset.budget = budgets[i]; dot.dataset.value = v; dot.dataset.origR = '5';
+            svg.appendChild(dot);
+        });
+    });
+    setupTooltip(svg, tooltip, document.getElementById('mainChart'), W, H, colors);
+}
+
+/* =================== CHART: MIXED CORRUPTION =================== */
+function drawMixedChart() {
+    const svg = document.getElementById('mixedChartSvg');
+    const tooltip = document.getElementById('mixedTooltip');
+    const budgets = [25, 50, 100, 200, 400, 800, 1600, 3200];
+    const data = {
+        'Best-naive': [-112.6,-106.3,-74.0,-4.2,15.2,35.9,46.2,63.9],
+        'Mixed': [-27.8,-26.4,-24.5,-51.0,-33.9,6.1,44.5,53.7],
+        'DRO-mean': [-10.0,-8.6,9.9,13.5,29.3,59.3,75.8,91.1],
+        'DRO-CVaR(0.5)': [-11.7,-8.6,1.2,17.0,26.5,57.4,76.0,90.9]
+    };
+    const colors = {'Best-naive':'#ff4d6a','Mixed':'#e879a0','DRO-mean':'#ff9f43','DRO-CVaR(0.5)':'#00e5c8'};
+    const W=800,H=380,pad={t:25,r:30,b:45,l:60};
+    const plotW=W-pad.l-pad.r,plotH=H-pad.t-pad.b;
+    const yMin=-130,yMax=100;
+    const xS=(i)=>pad.l+(i/(budgets.length-1))*plotW;
+    const yS=(v)=>pad.t+((yMax-v)/(yMax-yMin))*plotH;
+    for(let y=-100;y<=100;y+=25){
+        const py=yS(y);
+        svg.appendChild(makeSvg('line',{x1:pad.l,y1:py,x2:W-pad.r,y2:py,stroke:y===0?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)','stroke-width':y===0?1.5:0.5,...(y===0?{'stroke-dasharray':'6,4'}:{})}));
+        if(y%50===0) svg.appendChild(Object.assign(makeSvg('text',{x:pad.l-8,y:py+4,'text-anchor':'end',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'10'}),{textContent:y+'%'}));
+    }
+    budgets.forEach((b,i) => svg.appendChild(Object.assign(makeSvg('text',{x:xS(i),y:H-pad.b+20,'text-anchor':'middle',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'10'}),{textContent:b})));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(100),width:plotW,height:yS(0)-yS(100),fill:'rgba(0,229,200,0.03)'}));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(0),width:plotW,height:yS(yMin)-yS(0),fill:'rgba(255,77,106,0.03)'}));
+    Object.entries(data).forEach(([name,values]) => {
+        const c=colors[name];
+        const pts=values.map((v,i)=>xS(i)+','+yS(v)).join(' ');
+        const attrs={points:pts,fill:'none',stroke:c,'stroke-width':'2.5','stroke-linejoin':'round',opacity:'0.9'};
+        if(name==='Mixed') attrs['stroke-dasharray']='5,3';
+        svg.appendChild(makeSvg('polyline',attrs));
+        values.forEach((v,i) => {
+            const dot=makeSvg('circle',{cx:xS(i),cy:yS(v),r:'4.5',fill:c,stroke:'#0b0e17','stroke-width':'2',class:'chart-dot',style:'cursor:pointer'});
+            dot.dataset.name=name; dot.dataset.budget=budgets[i]; dot.dataset.value=v; dot.dataset.origR='4.5';
+            svg.appendChild(dot);
+        });
+    });
+    setupTooltip(svg, tooltip, document.getElementById('mixedChart'), W, H, colors);
+}
+
+/* =================== CHART: AGGREGATOR SPECTRUM =================== */
+function drawSpectrumChart() {
+    const svg = document.getElementById('spectrumSvg');
+    const tooltip = document.getElementById('spectrumTooltip');
+    const labels = ['max','CVaR(0.17)','CVaR(0.33)','CVaR(0.50)','CVaR(0.67)','CVaR(1.00)'];
+    const displayLabels = ['max','CVaR(0.17)','CVaR(0.33)','CVaR(0.50)','CVaR(0.67)','mean'];
+    const worst = [-28.3,-28.3,-7.4,17.0,17.4,13.5];
+    const mean = [76.5,76.5,80.9,85.1,85.7,85.0];
+    const colors = {'Worst%':'#00e5c8','Mean%':'#ff9f43'};
+    const W=800,H=340,pad={t:20,r:30,b:50,l:55};
+    const plotW=W-pad.l-pad.r,plotH=H-pad.t-pad.b;
+    const yMin=-40,yMax=100;
+    const xS=(i)=>pad.l+(i/(labels.length-1))*plotW;
+    const yS=(v)=>pad.t+((yMax-v)/(yMax-yMin))*plotH;
+    for(let y=-25;y<=100;y+=25){
+        const py=yS(y);
+        svg.appendChild(makeSvg('line',{x1:pad.l,y1:py,x2:W-pad.r,y2:py,stroke:y===0?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.04)','stroke-width':y===0?1.5:0.5,...(y===0?{'stroke-dasharray':'6,4'}:{})}));
+        svg.appendChild(Object.assign(makeSvg('text',{x:pad.l-8,y:py+4,'text-anchor':'end',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'10'}),{textContent:y+'%'}));
+    }
+    displayLabels.forEach((lbl,i) => svg.appendChild(Object.assign(makeSvg('text',{x:xS(i),y:H-pad.b+16,'text-anchor':'middle',fill:'#7a8ba8','font-family':'JetBrains Mono','font-size':'10'}),{textContent:lbl})));
+    svg.appendChild(Object.assign(makeSvg('text',{x:W/2,y:H-4,'text-anchor':'middle',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'9'}),{textContent:'\u2190 worst-case \u2500\u2500\u2500\u2500\u2500 average-case \u2192'}));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(100),width:plotW,height:yS(0)-yS(100),fill:'rgba(0,229,200,0.03)'}));
+    svg.appendChild(makeSvg('rect',{x:pad.l,y:yS(0),width:plotW,height:yS(yMin)-yS(0),fill:'rgba(255,77,106,0.03)'}));
+    svg.appendChild(makeSvg('rect',{x:xS(3)-25,y:yS(yMax),width:50,height:plotH,fill:'rgba(167,139,250,0.08)',rx:'4'}));
+    svg.appendChild(Object.assign(makeSvg('text',{x:xS(3),y:yS(yMax)+14,'text-anchor':'middle',fill:'#a78bfa','font-family':'JetBrains Mono','font-size':'9','font-weight':'600'}),{textContent:'\u2605 sweet spot'}));
+    svg.appendChild(makeSvg('polyline',{points:worst.map((v,i)=>xS(i)+','+yS(v)).join(' '),fill:'none',stroke:'#00e5c8','stroke-width':'2.5','stroke-linejoin':'round'}));
+    svg.appendChild(makeSvg('polyline',{points:mean.map((v,i)=>xS(i)+','+yS(v)).join(' '),fill:'none',stroke:'#ff9f43','stroke-width':'2.5','stroke-linejoin':'round'}));
+    worst.forEach((v,i) => {
+        const dot=makeSvg('circle',{cx:xS(i),cy:yS(v),r:'5',fill:'#00e5c8',stroke:'#0b0e17','stroke-width':'2',class:'chart-dot',style:'cursor:pointer'});
+        dot.dataset.name='Worst%'; dot.dataset.label=labels[i]; dot.dataset.value=v; dot.dataset.origR='5';
+        svg.appendChild(dot);
+    });
+    mean.forEach((v,i) => {
+        const dot=makeSvg('circle',{cx:xS(i),cy:yS(v),r:'5',fill:'#ff9f43',stroke:'#0b0e17','stroke-width':'2',class:'chart-dot',style:'cursor:pointer'});
+        dot.dataset.name='Mean%'; dot.dataset.label=labels[i]; dot.dataset.value=v; dot.dataset.origR='5';
+        svg.appendChild(dot);
+    });
+    setupTooltip(svg, tooltip, document.getElementById('spectrumChart'), W, H, colors);
+}
+
+/* =================== HEATMAP =================== */
+function drawHeatmap() {
+    const container = document.getElementById('heatmapContainer');
+    const circuits = [
+        {label:'Naive (IO_RAND)', vals:{IO_RAND:-127.4,IO_S1:106.1,S1_RAND:141.7,S2_IO:17.8,S_RAND:249.9}},
+        {label:'Naive (S_RAND)', vals:{IO_RAND:-4.2,IO_S1:103.9,S1_RAND:85.4,S2_IO:14.9,S_RAND:186.0}},
+        {label:'Naive (S2_IO)', vals:{IO_RAND:-47.6,IO_S1:114.0,S1_RAND:111.1,S2_IO:54.0,S_RAND:225.6}},
+        {label:'DRO-mean', vals:{IO_RAND:13.5,IO_S1:109.8,S1_RAND:91.7,S2_IO:22.7,S_RAND:187.1}},
+        {label:'DRO-CVaR(0.5)', vals:{IO_RAND:17.0,IO_S1:109.7,S1_RAND:90.1,S2_IO:21.8,S_RAND:186.9}},
+        {label:'DRO-max', vals:{IO_RAND:-28.3,IO_S1:106.8,S1_RAND:92.5,S2_IO:18.7,S_RAND:193.0}},
+    ];
+    const corruptions = ['IO_RAND','IO_S1','S1_RAND','S2_IO','S_RAND'];
+    function getColor(v) {
+        if (v < 0) return 'rgba(255,77,106,' + (Math.min(1, Math.abs(v)/150*0.8+0.2)) + ')';
+        if (v < 50) return 'rgba(255,159,67,' + (v/50*0.5+0.2) + ')';
+        if (v <= 100) return 'rgba(0,229,200,' + ((v-50)/50*0.5+0.2) + ')';
+        return 'rgba(91,141,239,' + Math.min(1,(v-100)/150*0.6+0.3) + ')';
+    }
+    const grid = document.createElement('div');
+    grid.className = 'heatmap-grid';
+    grid.style.cssText = 'grid-template-columns:clamp(90px,12vw,140px) repeat(5,1fr);max-width:700px;width:100%';
+    grid.appendChild(document.createElement('div'));
+    corruptions.forEach(c => {
+        const el = document.createElement('div');
+        el.className = 'heatmap-col-label';
+        el.textContent = c;
+        grid.appendChild(el);
+    });
+    circuits.forEach(circuit => {
+        const lbl = document.createElement('div');
+        lbl.className = 'heatmap-label';
+        lbl.textContent = circuit.label;
+        grid.appendChild(lbl);
+        corruptions.forEach(c => {
+            const v = circuit.vals[c];
+            const cell = document.createElement('div');
+            cell.className = 'heatmap-cell';
+            cell.style.background = getColor(v);
+            cell.style.color = v < -50 || v > 150 ? '#fff' : (v < 0 ? '#ffb3c1' : '#e8ecf4');
+            cell.textContent = Math.round(v) + '%';
+            cell.title = circuit.label + ' / ' + c + ': ' + v.toFixed(1) + '%';
+            grid.appendChild(cell);
+        });
+    });
+    const legend = document.createElement('div');
+    legend.style.cssText = 'display:flex;gap:12px;justify-content:center;margin-top:8px;font-family:var(--font-mono);font-size:10px';
+    ['#ff4d6a:<0%','#ff9f43:0-50%','#00e5c8:50-100%','#5b8def:>100%'].forEach(item => {
+        const [color, text] = item.split(':');
+        const span = document.createElement('span');
+        span.style.color = color;
+        span.textContent = '\u25a0 ' + text;
+        legend.appendChild(span);
+    });
+    container.replaceChildren(grid, legend);
+}
+
+/* =================== CIRCUIT ARCHITECTURE GRAPH =================== */
+function drawCircuitGraph() {
+    const svg = document.getElementById('circuitSvg');
+    const tooltip = document.getElementById('circuitTooltip');
+    const W = 960, H = 400;
+
+    /* --- Node definitions --- */
+    /* Roles: dup=Duplicate Token, ind=Induction, sin=S-Inhibition, nm=Name Mover, neg=Negative Name Mover */
+    const nodes = [
+        {id:'input',   x:45,  y:200, label:'Input',   type:'io',   w:52, h:28},
+        {id:'a0.h1',   x:155, y:105, label:'a0.h1',   type:'attn', r:21, role:'dup'},
+        {id:'a0.h10',  x:155, y:215, label:'a0.h10',  type:'attn', r:21, role:'unk'},
+        {id:'m0',      x:155, y:325, label:'MLP\u2080',type:'mlp',  w:50, h:26},
+        {id:'a3.h0',   x:285, y:180, label:'a3.h0',   type:'attn', r:21, role:'dup'},
+        {id:'m1',      x:285, y:325, label:'MLP\u2081',type:'mlp',  w:50, h:26},
+        {id:'a5.h5',   x:400, y:180, label:'a5.h5',   type:'attn', r:21, role:'ind'},
+        {id:'m2',      x:400, y:325, label:'MLP\u2082',type:'mlp',  w:50, h:26},
+        {id:'a6.h9',   x:510, y:180, label:'a6.h9',   type:'attn', r:21, role:'ind'},
+        {id:'a8.h6',   x:610, y:180, label:'a8.h6',   type:'attn', r:21, role:'sin'},
+        {id:'a10.h0',  x:710, y:180, label:'a10.h0',  type:'attn', r:21, role:'nm'},
+        {id:'a11.h2',  x:810, y:80,  label:'a11.h2',  type:'attn', r:21, role:'nm'},
+        {id:'a11.h3',  x:810, y:170, label:'a11.h3',  type:'attn', r:21, role:'nm'},
+        {id:'a11.h10', x:810, y:260, label:'a11.h10', type:'attn', r:21, role:'neg'},
+        {id:'a11.h11', x:810, y:350, label:'a11.h11', type:'attn', r:21, role:'neg'},
+        {id:'logits',  x:920, y:200, label:'Logits',  type:'io',   w:52, h:28},
+    ];
+    const nodeMap = {}; nodes.forEach(n => nodeMap[n.id] = n);
+
+    /* --- Role colors --- */
+    const roleColors = {
+        dup:  {fill:'rgba(91,141,239,0.18)',  stroke:'rgba(91,141,239,0.6)',  text:'#5b8def'},
+        ind:  {fill:'rgba(167,139,250,0.18)', stroke:'rgba(167,139,250,0.6)', text:'#a78bfa'},
+        sin:  {fill:'rgba(255,107,138,0.18)', stroke:'rgba(255,107,138,0.6)', text:'#ff6b8a'},
+        nm:   {fill:'rgba(0,229,200,0.18)',   stroke:'rgba(0,229,200,0.6)',   text:'#00e5c8'},
+        neg:  {fill:'rgba(255,159,67,0.18)',  stroke:'rgba(255,159,67,0.6)',  text:'#ff9f43'},
+        unk:  {fill:'rgba(255,255,255,0.06)', stroke:'rgba(255,255,255,0.25)',text:'#7a8ba8'},
+    };
+    const mlpColor = {fill:'rgba(255,159,67,0.12)', stroke:'rgba(255,159,67,0.4)', text:'#ff9f43'};
+    const ioColor  = {fill:'rgba(255,255,255,0.06)', stroke:'rgba(255,255,255,0.2)', text:'#e8ecf4'};
+
+    /* --- Edges (merged by node pair, from top-20 DRO-Max) --- */
+    const edges = [
+        {from:'m0',     to:'logits',  score:0.0547, rank:1},
+        {from:'input',  to:'a0.h10',  score:0.0283, rank:2},
+        {from:'input',  to:'logits',  score:0.0242, rank:3},
+        {from:'input',  to:'m0',      score:0.0209, rank:4},
+        {from:'a11.h2', to:'logits',  score:0.0154, rank:5},
+        {from:'a10.h0', to:'logits',  score:0.0151, rank:6},
+        {from:'a11.h3', to:'logits',  score:0.0139, rank:7},
+        {from:'input',  to:'a0.h1',   score:0.0132, rank:8},
+        {from:'a11.h10',to:'logits',  score:0.0127, rank:9},
+        {from:'m0',     to:'a3.h0',   score:0.0125, rank:10},
+        {from:'m1',     to:'logits',  score:0.0115, rank:11},
+        {from:'m2',     to:'logits',  score:0.0091, rank:12},
+        {from:'a11.h11',to:'logits',  score:0.0084, rank:13},
+        {from:'a5.h5',  to:'a6.h9',   score:0.0082, rank:14},
+        {from:'a5.h5',  to:'a8.h6',   score:0.0080, rank:15},
+        {from:'m0',     to:'a10.h0',  score:0.0077, rank:16},
+        {from:'m0',     to:'a11.h2',  score:0.0066, rank:17},
+        {from:'m0',     to:'m2',      score:0.0057, rank:18},
+    ];
+    const maxScore = edges[0].score;
+
+    /* --- Layer column labels --- */
+    var layerData = [{x:45,t:'Input'},{x:155,t:'L0'},{x:285,t:'L3'},{x:400,t:'L5'},{x:510,t:'L6'},{x:610,t:'L8'},{x:710,t:'L10'},{x:810,t:'L11'},{x:920,t:'Output'}];
+    layerData.forEach(function(l) {
+        svg.appendChild(Object.assign(makeSvg('text',{x:l.x,y:16,'text-anchor':'middle',fill:'#4a5568','font-family':'JetBrains Mono','font-size':'9','font-weight':'500'}),{textContent:l.t}));
+    });
+
+    /* --- Layer separator lines --- */
+    [220,350,455,565,660,760].forEach(function(lx) {
+        svg.appendChild(makeSvg('line',{x1:lx,y1:30,x2:lx,y2:H-10,stroke:'rgba(255,255,255,0.03)','stroke-width':'1','stroke-dasharray':'4,4'}));
+    });
+
+    /* --- Group annotation boxes --- */
+    var groups = [
+        {x:120,y:70,w:70,h:75,label:'Dup Token',color:'rgba(91,141,239,0.08)',tc:'#5b8def'},
+        {x:365,y:145,w:70,h:70,label:'Induction',color:'rgba(167,139,250,0.08)',tc:'#a78bfa'},
+        {x:580,y:145,w:60,h:70,label:'S-Inhib',color:'rgba(255,107,138,0.08)',tc:'#ff6b8a'},
+        {x:675,y:50,w:170,h:155,label:'Name Movers',color:'rgba(0,229,200,0.05)',tc:'#00e5c8'},
+        {x:775,y:230,w:70,h:155,label:'Neg NM',color:'rgba(255,159,67,0.06)',tc:'#ff9f43'},
+    ];
+    groups.forEach(function(g) {
+        svg.appendChild(makeSvg('rect',{x:g.x,y:g.y,width:g.w,height:g.h,rx:'8',fill:g.color,stroke:'none'}));
+        svg.appendChild(Object.assign(makeSvg('text',{x:g.x+g.w/2,y:g.y+g.h+12,'text-anchor':'middle',fill:g.tc,'font-family':'JetBrains Mono','font-size':'7','font-weight':'500','opacity':'0.7'}),{textContent:g.label}));
+    });
+
+    /* --- Draw edges --- */
+    edges.forEach(function(e) {
+        var s = nodeMap[e.from], t = nodeMap[e.to];
+        var sw = 1.2 + (e.score / maxScore) * 4;
+        var opacity = 0.2 + (e.score / maxScore) * 0.65;
+        var mx = (s.x + t.x) / 2;
+        var my = (s.y + t.y) / 2;
+        var dy = t.y - s.y;
+        var offset = (Math.abs(dy) < 20) ? (e.rank % 2 === 0 ? -15 : 15) : Math.sign(dy) * Math.min(Math.abs(dy) * 0.12, 25);
+        var d = 'M' + s.x + ',' + s.y + ' Q' + mx + ',' + (my + offset) + ' ' + t.x + ',' + t.y;
+        var edgeColor = '#00e5c8';
+        if (e.score > 0.03) edgeColor = '#00e5c8';
+        else if (e.score > 0.01) edgeColor = '#5b8def';
+        else edgeColor = '#a78bfa';
+
+        var path = makeSvg('path', {d:d, fill:'none', stroke:edgeColor, 'stroke-width':sw.toFixed(1), opacity:opacity.toFixed(2), 'stroke-linecap':'round', style:'cursor:pointer;transition:all 0.15s ease'});
+        path.addEventListener('mouseenter', function() {
+            path.setAttribute('stroke', '#ffffff');
+            path.setAttribute('opacity', '1');
+            path.setAttribute('filter', 'drop-shadow(0 0 6px rgba(0,229,200,0.5))');
+            var svgRect = svg.getBoundingClientRect();
+            var ptX = mx * svgRect.width / W;
+            var ptY = (my + offset) * svgRect.height / H;
+            var tt1 = document.createElement('div');
+            tt1.style.cssText = 'color:#4a5568;margin-bottom:2px';
+            tt1.textContent = '#' + e.rank + ' edge';
+            var tt2 = document.createElement('div');
+            tt2.style.cssText = 'font-weight:600;color:#00e5c8';
+            tt2.textContent = e.from + ' \u2192 ' + e.to;
+            var tt3 = document.createElement('div');
+            tt3.style.cssText = 'color:#7a8ba8;font-size:10px';
+            tt3.textContent = 'score: ' + e.score.toFixed(4);
+            tooltip.replaceChildren(tt1, tt2, tt3);
+            tooltip.style.left = Math.min(ptX + 12, svgRect.width - 120) + 'px';
+            tooltip.style.top = (ptY - 25) + 'px';
+            tooltip.classList.add('show');
+        });
+        path.addEventListener('mouseleave', function() {
+            path.setAttribute('stroke', edgeColor);
+            path.setAttribute('opacity', opacity.toFixed(2));
+            path.removeAttribute('filter');
+            tooltip.classList.remove('show');
+        });
+        svg.appendChild(path);
+    });
+
+    /* --- Draw nodes --- */
+    nodes.forEach(function(n) {
+        var c;
+        if (n.type === 'io') c = ioColor;
+        else if (n.type === 'mlp') c = mlpColor;
+        else c = roleColors[n.role] || roleColors.unk;
+
+        var g = makeSvg('g', {style:'cursor:pointer'});
+        if (n.type === 'attn') {
+            g.appendChild(makeSvg('circle', {cx:n.x, cy:n.y, r:n.r, fill:c.fill, stroke:c.stroke, 'stroke-width':'1.5'}));
+        } else {
+            g.appendChild(makeSvg('rect', {x:n.x-n.w/2, y:n.y-n.h/2, width:n.w, height:n.h, rx:'6', fill:c.fill, stroke:c.stroke, 'stroke-width':'1.5'}));
+        }
+        g.appendChild(Object.assign(makeSvg('text', {x:n.x, y:n.y + (n.type==='attn'?4:5), 'text-anchor':'middle', fill:c.text, 'font-family':'JetBrains Mono', 'font-size':n.type==='io'?'10':'8', 'font-weight':'600'}), {textContent:n.label}));
+
+        /* Node hover: highlight connected edges */
+        g.addEventListener('mouseenter', function() {
+            var svgRect = svg.getBoundingClientRect();
+            var px = n.x * svgRect.width / W;
+            var py = n.y * svgRect.height / H;
+            var conns = edges.filter(function(e){ return e.from===n.id || e.to===n.id; });
+            var roleNames = {dup:'Duplicate Token Head',ind:'Induction Head',sin:'S-Inhibition Head',nm:'Name Mover Head',neg:'Negative Name Mover',unk:'Unknown'};
+            var tt1 = document.createElement('div');
+            tt1.style.cssText = 'font-weight:600;color:'+c.text;
+            tt1.textContent = n.label;
+            tooltip.replaceChildren(tt1);
+            if (n.role) {
+                var tt2 = document.createElement('div');
+                tt2.style.cssText = 'color:#7a8ba8;font-size:10px';
+                tt2.textContent = roleNames[n.role] || n.type.toUpperCase();
+                tooltip.appendChild(tt2);
+            }
+            var tt3 = document.createElement('div');
+            tt3.style.cssText = 'color:#4a5568;font-size:10px;margin-top:2px';
+            tt3.textContent = conns.length + ' connections in top-20';
+            tooltip.appendChild(tt3);
+            tooltip.style.left = Math.min(px + 15, svgRect.width - 130) + 'px';
+            tooltip.style.top = (py - 30) + 'px';
+            tooltip.classList.add('show');
+        });
+        g.addEventListener('mouseleave', function() { tooltip.classList.remove('show'); });
+        svg.appendChild(g);
+    });
+}
+
+/* =================== INITIALIZE =================== */
+document.addEventListener('DOMContentLoaded', function() {
+    new SlidePresentation();
+    drawMainChart();
+    drawMixedChart();
+    drawSpectrumChart();
+    drawHeatmap();
+    drawCircuitGraph();
+});
+</script>
+
+</body>
+</html>

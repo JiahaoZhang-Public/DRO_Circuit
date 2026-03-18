@@ -43,6 +43,9 @@ class IOITask:
             "S2_IO",
             "IO_RAND",
             "S_RAND",
+            "S1_RAND",
+            "IO_S1",
+            # Note: S_IO excluded due to bug in ACDC gen_flipped_prompts
         ]
 
     def load_model(self) -> HookedTransformer:
