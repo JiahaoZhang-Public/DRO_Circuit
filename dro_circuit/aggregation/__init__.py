@@ -5,4 +5,5 @@ from dro_circuit.aggregation.aggregators import (
     MeanAggregator,
     SoftmaxAggregator,
     make_aggregator,
+    normalize_per_corruption,
 )

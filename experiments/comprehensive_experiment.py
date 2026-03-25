@@ -77,13 +77,26 @@ GROUP_DRO_CONFIGS = OrderedDict([
     ("softmax_10.0", ("softmax", {"temperature": 10.0})),
 ])
 
+# Normalized variants: per-corruption max-normalization before aggregation.
+# This prevents domination by the corruption with the largest raw score magnitudes.
+NORM_DRO_CONFIGS = OrderedDict([
+    ("norm_max",          ("max",     {"normalize": "max"})),
+    ("norm_cvar_0.17",    ("cvar",    {"alpha": 1 / 6, "normalize": "max"})),
+    ("norm_cvar_0.33",    ("cvar",    {"alpha": 1 / 3, "normalize": "max"})),
+    ("norm_cvar_0.50",    ("cvar",    {"alpha": 0.5, "normalize": "max"})),
+    ("norm_softmax_0.01", ("softmax", {"temperature": 0.01, "normalize": "max"})),
+    ("norm_softmax_0.1",  ("softmax", {"temperature": 0.1, "normalize": "max"})),
+])
+
 # Local DRO: per-example worst-case (requires per-example scores)
 LOCAL_DRO_CONFIG = ("local_dro", ("local_dro", {}))
+NORM_LOCAL_DRO_CONFIG = ("norm_local_dro", ("local_dro", {"normalize": "max"}))
 
-# All group-level aggregator configs (ERM + Group DRO) for iteration
+# All group-level aggregator configs (ERM + Group DRO + Normalized) for iteration
 ALL_AGGREGATOR_CONFIGS = OrderedDict([
     ("erm_mean", ERM_CONFIG[1]),
     *GROUP_DRO_CONFIGS.items(),
+    *NORM_DRO_CONFIGS.items(),
 ])
 
 
@@ -206,24 +219,28 @@ def phase2_build(model, score_store, edge_budgets, output_dir, per_example_store
             torch.save(circuits_info[name], masks_dir / f"{name}.pt")
             print(f"    {name}: {actual} edges")
 
-        # Local DRO circuit (requires per-example scores)
+        # Local DRO circuits (requires per-example scores)
         if per_example_store is not None:
-            name = circuit_name("dro", "local_dro", budget)
-            aggregator = make_aggregator("local_dro")
-            agg_scores = aggregator.aggregate(per_example_store.all_scores())
+            for ldro_label, (ldro_type, ldro_kwargs) in [
+                LOCAL_DRO_CONFIG,
+                NORM_LOCAL_DRO_CONFIG,
+            ]:
+                name = circuit_name("dro", ldro_label, budget)
+                aggregator = make_aggregator(ldro_type, **ldro_kwargs)
+                agg_scores = aggregator.aggregate(per_example_store.all_scores())
 
-            graph = Graph.from_model(model)
-            graph.scores = agg_scores.to(graph.scores.device)
-            graph.apply_topn(budget, absolute=True)
-            actual = int(graph.in_graph.sum().item())
+                graph = Graph.from_model(model)
+                graph.scores = agg_scores.to(graph.scores.device)
+                graph.apply_topn(budget, absolute=True)
+                actual = int(graph.in_graph.sum().item())
 
-            circuits_info[name] = {
-                "in_graph": graph.in_graph.cpu().clone(),
-                "scores": graph.scores.cpu().clone(),
-                "actual_edges": actual,
-            }
-            torch.save(circuits_info[name], masks_dir / f"{name}.pt")
-            print(f"    {name}: {actual} edges")
+                circuits_info[name] = {
+                    "in_graph": graph.in_graph.cpu().clone(),
+                    "scores": graph.scores.cpu().clone(),
+                    "actual_edges": actual,
+                }
+                torch.save(circuits_info[name], masks_dir / f"{name}.pt")
+                print(f"    {name}: {actual} edges")
 
     elapsed = time.time() - t0
     print(f"[Phase 2] Built {len(circuits_info)} circuits in {elapsed:.1f}s")
