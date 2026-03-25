@@ -39,22 +39,33 @@ python experiments/comprehensive_experiment.py \
 - Phase 3 (evaluate 128 circuits): 629.2s
 - **Total: 709.5s (11.8 min)**
 
-### ERM vs DRO-max (logit_diff_loss, lower = more faithful)
+### Normalized Faithfulness (Faith=1: perfect recovery, Faith=0: no better than corrupt)
 
-| Budget | ERM Edges | ERM Worst | ERM Mean  | DRO Edges | DRO Worst | DRO Mean  | Δ Worst |
-|--------|-----------|-----------|-----------|-----------|-----------|-----------|---------|
-| 25     | 10        | 0.1489    | -1.3805   | 9         | 0.3179    | -1.3306   | -0.169  |
-| 50     | 25        | 0.1284    | -1.3155   | 26        | 0.4236    | -1.3526   | -0.295  |
-| 100    | 59        | -0.1481   | -1.2912   | 57        | 0.1799    | -1.3069   | -0.328  |
-| 200    | 159       | -0.2018   | -1.2664   | 166       | 0.4213    | -1.1409   | -0.623  |
-| 400    | 369       | -0.4373   | -1.2631   | 365       | -0.1867   | -1.3006   | -0.251  |
-| 800    | 759       | -0.8835   | -1.3123   | 755       | -0.6758   | -1.3651   | -0.208  |
-| 1600   | 1561      | -1.1304   | -1.3922   | 1561      | -1.0368   | -1.4420   | -0.094  |
-| 3200   | 3167      | -1.3574   | -1.4653   | 3169      | -1.3125   | -1.4541   | -0.045  |
+| Method | Budget | Mean Faith | Worst-Group Faith | Per-Example Worst Faith |
+|--------|--------|-----------|-------------------|------------------------|
+| ERM    | 100    | 1.9359    | 0.0228            | -1.0108                |
+| DRO-max| 100    | 1.5731    | 0.0960            | -0.6042                |
+| Local DRO| 100  | 1.0842    | 0.0350            | -0.4159                |
+| ERM    | 200    | 2.3272    | 0.1422            | -1.3353                |
+| DRO-max| 200    | 2.1907    | 0.0484            | -1.2704                |
+| Local DRO| 200  | 1.5769    | -0.1317           | -0.9481                |
+| ERM    | 400    | 3.0134    | 0.3394            | -1.2051                |
+| DRO-max| 400    | 2.3354    | 0.2956            | -0.8204                |
+| Local DRO| 400  | 1.9267    | -0.0278           | -1.4160                |
+| ERM    | 800    | 2.6907    | 0.5443            | -0.8593                |
+| DRO-max| 800    | 2.6424    | 0.6190            | -0.8190                |
+| Local DRO| 800  | 1.4639    | 0.4051            | -0.8081                |
 
-### DRO Win Rate
+### DRO Win Rate (Worst-Group Faithfulness, higher = better)
 
-**DRO-max wins worst-group at 0/8 budgets.** ERM outperforms DRO-max on worst-group faithfulness at all budgets.
+| Budget | ERM    | DRO-max | Winner  |
+|--------|--------|---------|---------|
+| 100    | 0.0228 | 0.0960  | DRO-max |
+| 200    | 0.1422 | 0.0484  | ERM     |
+| 400    | 0.3394 | 0.2956  | ERM     |
+| 800    | 0.5443 | 0.6190  | DRO-max |
+
+**DRO-max wins worst-group faithfulness at 2/4 budgets** (100, 800). Mixed results — no clear winner.
 
 ### Key observations
 

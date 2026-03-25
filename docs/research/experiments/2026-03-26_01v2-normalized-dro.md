@@ -87,6 +87,36 @@ python experiments/comprehensive_experiment.py \
 
 **Norm-CVaR(0.50) wins 4/8 budgets** (200, 400, 1600, 3200).
 
+### Normalized Faithfulness (Faith=1: perfect recovery, Faith=0: no better than corrupt)
+
+| Method | Budget | Mean Faith | Worst-Group Faith | Per-Example Worst Faith |
+|--------|--------|-----------|-------------------|------------------------|
+| ERM          | 100 | 1.9359 | 0.0228 | -1.0108 |
+| Norm-Max     | 100 | 1.9655 | -0.0931 | -1.0769 |
+| Norm-CVaR    | 100 | 2.2293 | 0.0164 | -1.1636 |
+| Norm-LocalDRO| 100 | 0.7652 | 0.0972 | -0.3181 |
+| ERM          | 200 | 2.3272 | 0.1422 | -1.3353 |
+| Norm-Max     | 200 | 2.0861 | 0.1070 | -0.9334 |
+| Norm-CVaR    | 200 | 2.4524 | **0.1952** | -1.2614 |
+| Norm-LocalDRO| 200 | 1.0035 | 0.0371 | -0.5455 |
+| ERM          | 400 | 3.0134 | 0.3394 | -1.2051 |
+| Norm-Max     | 400 | 2.3459 | **0.4596** | -1.0404 |
+| Norm-CVaR    | 400 | 2.4543 | **0.4702** | -1.0080 |
+| Norm-LocalDRO| 400 | 1.7622 | 0.1994 | -1.2127 |
+| ERM          | 800 | 2.6907 | 0.5443 | -0.8593 |
+| Norm-Max     | 800 | 2.1586 | 0.3648 | -0.8227 |
+| Norm-CVaR    | 800 | 2.3849 | 0.5321 | -0.9763 |
+| Norm-LocalDRO| 800 | 1.1668 | 0.4876 | -0.6719 |
+
+### Worst-Group Faithfulness Winner per Budget (higher = better)
+
+| Budget | ERM    | Norm-Max | Norm-CVaR(0.50) | Norm-LocalDRO | Winner |
+|--------|--------|----------|-----------------|---------------|--------|
+| 100    | 0.0228 | -0.0931  | 0.0164          | **0.0972**    | Norm-LocalDRO |
+| 200    | 0.1422 | 0.1070   | **0.1952**      | 0.0371        | Norm-CVaR |
+| 400    | 0.3394 | 0.4596   | **0.4702**      | 0.1994        | Norm-CVaR |
+| 800    | **0.5443** | 0.3648 | 0.5321         | 0.4876        | ERM |
+
 ## Analysis
 
 ### Normalization helps significantly but doesn't fully solve the problem
