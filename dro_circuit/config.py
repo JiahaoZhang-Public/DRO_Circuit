@@ -25,10 +25,10 @@ class CorruptionConfig:
 
 @dataclass
 class ScoringConfig:
-    """EAP-IG edge attribution parameters."""
+    """EAP edge attribution parameters."""
 
     method: Literal["EAP", "EAP-IG-inputs", "EAP-IG-activations", "clean-corrupted"] = (
-        "EAP-IG-inputs"
+        "EAP"
     )
     ig_steps: int = 5
     intervention: Literal["patching", "zero", "mean"] = "patching"

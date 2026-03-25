@@ -23,7 +23,7 @@ class DROPipeline:
     DRO circuit discovery: Score -> Aggregate -> Select.
 
     Steps:
-      1. For each corruption c_k, run EAP-IG -> per-edge scores s_e^{(k)}
+      1. For each corruption c_k, run EAP -> per-edge scores s_e^{(k)}
       2. DRO aggregation: s_e = Agg_k(s_e^{(k)})
       3. Write aggregated scores to Graph.scores
       4. Apply greedy or topn selection

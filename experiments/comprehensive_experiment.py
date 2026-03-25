@@ -189,7 +189,7 @@ def phase2_build(model, score_store, edge_budgets, output_dir, per_example_store
 
         # ERM + DRO circuits: one per aggregator
         for agg_name, (agg_type, agg_kwargs) in ALL_AGGREGATOR_CONFIGS.items():
-            name = circuit_name("agg", agg_name, budget)
+            name = circuit_name("dro", agg_name, budget)
             aggregator = make_aggregator(agg_type, **agg_kwargs)
             agg_scores = aggregator.aggregate(all_scores)
 
@@ -208,7 +208,7 @@ def phase2_build(model, score_store, edge_budgets, output_dir, per_example_store
 
         # Local DRO circuit (requires per-example scores)
         if per_example_store is not None:
-            name = circuit_name("agg", "local_dro", budget)
+            name = circuit_name("dro", "local_dro", budget)
             aggregator = make_aggregator("local_dro")
             agg_scores = aggregator.aggregate(per_example_store.all_scores())
 
@@ -319,8 +319,8 @@ def print_main_table(summary, corruptions, edge_budgets):
     print("-" * len(header))
 
     for budget in edge_budgets:
-        erm_name = circuit_name("agg", "erm_mean", budget)
-        dro_name = circuit_name("agg", "max", budget)
+        erm_name = circuit_name("dro", "erm_mean", budget)
+        dro_name = circuit_name("dro", "max", budget)
 
         for name, label in [(erm_name, "ERM (mean)"), (dro_name, "DRO (max)")]:
             if name not in summary:
@@ -357,7 +357,7 @@ def print_aggregator_table(summary, edge_budgets):
     for budget in edge_budgets:
         row = f"{budget:<8}"
         for agg in agg_names:
-            n = circuit_name("agg", agg, budget)
+            n = circuit_name("dro", agg, budget)
             if n in summary:
                 row += f"  {summary[n]['worst']:{col_w}.4f}"
             else:
@@ -457,8 +457,8 @@ def main():
 
     wins = 0
     for budget in args.edge_budgets:
-        erm_name = circuit_name("agg", "erm_mean", budget)
-        dro_name = circuit_name("agg", "max", budget)
+        erm_name = circuit_name("dro", "erm_mean", budget)
+        dro_name = circuit_name("dro", "max", budget)
         if erm_name not in summary or dro_name not in summary:
             continue
         erm_worst = summary[erm_name]["worst"]

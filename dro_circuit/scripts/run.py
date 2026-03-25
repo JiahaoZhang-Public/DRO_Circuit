@@ -4,7 +4,7 @@ Run DRO circuit discovery (Score-Aggregate-Select).
 
 Usage:
     python -m dro_circuit.scripts.run --task ioi --n_edges 200 --aggregator max
-    python -m dro_circuit.scripts.run --config configs/ioi.yaml
+    python -m dro_circuit.scripts.run --task ioi --aggregator cvar --cvar_alpha 0.3
 """
 
 import argparse
@@ -19,13 +19,13 @@ from dro_circuit.tasks.ioi import IOITask
 
 def main():
     parser = argparse.ArgumentParser(description="DRO Circuit Discovery")
-    parser.add_argument("--task", default="ioi", choices=["ioi"])
+    parser.add_argument("--task", default="ioi", choices=["ioi", "docstring"])
     parser.add_argument("--n_examples", type=int, default=100)
     parser.add_argument("--n_edges", type=int, default=200)
     parser.add_argument(
-        "--aggregator", default="max", choices=["max", "cvar", "softmax"]
+        "--aggregator", default="max", choices=["max", "mean", "local_dro", "cvar", "softmax"]
     )
-    parser.add_argument("--method", default="EAP-IG-inputs")
+    parser.add_argument("--method", default="EAP")
     parser.add_argument("--selection", default="topn", choices=["topn", "greedy"])
     parser.add_argument("--cvar_alpha", type=float, default=0.5)
     parser.add_argument("--softmax_temp", type=float, default=1.0)
@@ -68,6 +68,15 @@ def main():
     # Build task
     if config.task == "ioi":
         task = IOITask(
+            n_examples=config.n_examples,
+            device=config.model.device,
+            seed=config.seed,
+            corruption_families=config.corruption.families,
+        )
+    elif config.task == "docstring":
+        from dro_circuit.tasks.docstring import DocstringTask
+
+        task = DocstringTask(
             n_examples=config.n_examples,
             device=config.model.device,
             seed=config.seed,

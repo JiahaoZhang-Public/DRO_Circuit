@@ -1,4 +1,4 @@
-"""Adapts MultiCorruptDataset to EAP-IG's expected DataLoader format."""
+"""Adapts MultiCorruptDataset to EAP's expected DataLoader format."""
 
 from typing import Dict, List, Tuple
 
@@ -27,7 +27,7 @@ class SingleCorruptDataset(Dataset):
 
 
 def collate_eap(batch: List[Tuple[str, str, torch.Tensor]]):
-    """Collate into EAP-IG format: (clean_list, corrupt_list, label_tensor)."""
+    """Collate into EAP format: (clean_list, corrupt_list, label_tensor)."""
     clean, corrupt, labels = zip(*batch)
     return list(clean), list(corrupt), torch.stack(labels)
 
@@ -38,7 +38,7 @@ def make_eap_dataloader(
     batch_size: int,
     shuffle: bool = False,
 ) -> DataLoader:
-    """Create an EAP-IG compatible DataLoader for a single corruption variant."""
+    """Create an EAP-compatible DataLoader for a single corruption variant."""
     ds = SingleCorruptDataset(multi_dataset, corruption_name)
     return DataLoader(ds, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_eap)
 

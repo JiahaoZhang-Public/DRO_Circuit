@@ -1,4 +1,4 @@
-"""Wraps EAP-IG attribution to score edges per corruption variant."""
+"""Wraps EAP attribution to score edges per corruption variant."""
 
 import sys
 from pathlib import Path
@@ -21,7 +21,7 @@ from dro_circuit.scoring.score_store import PerExampleScoreStore, ScoreStore
 
 class PerCorruptionScorer:
     """
-    Runs EAP-IG attribution independently per corruption variant.
+    Runs EAP attribution independently per corruption variant.
 
     For each corruption c_k, calls attribute(model, graph, dataloader_k, metric, method)
     to produce per-edge scores, then stores them in a ScoreStore.
@@ -32,7 +32,7 @@ class PerCorruptionScorer:
         model: HookedTransformer,
         method: Literal[
             "EAP", "EAP-IG-inputs", "EAP-IG-activations", "clean-corrupted"
-        ] = "EAP-IG-inputs",
+        ] = "EAP",
         ig_steps: int = 5,
         intervention: Literal["patching", "zero", "mean"] = "patching",
         aggregation: str = "sum",
@@ -82,7 +82,7 @@ class PerCorruptionScorer:
             # Build single-corruption DataLoader
             dataloader = make_eap_dataloader(dataset, corruption_name, self.batch_size)
 
-            # Run EAP-IG attribution
+            # Run EAP attribution
             ig_steps = self.ig_steps if "IG" in self.method else None
             attribute(
                 self.model,

@@ -2,7 +2,7 @@
 
 **Distributionally Robust Circuit Discovery in Transformers**
 
-Standard circuit discovery methods score edges under a single corruption, making them brittle to the choice of corruption type. DRO Circuit Discovery scores each edge independently under multiple corruption families, then aggregates with a DRO-style rule to find circuits that are faithful under the **worst-case** corruption.
+Standard circuit discovery methods score edges under a single corruption type, producing circuits that are faithful on average but may fail under certain interventions. DRO Circuit Discovery reframes this as an **ERM vs DRO** comparison — scoring each edge under multiple corruption families and aggregating with a robust rule to find circuits that are faithful under the **worst-case** corruption.
 
 ## Method
 
@@ -15,22 +15,22 @@ Standard circuit discovery methods score edges under a single corruption, making
                ┌─────────────────┼─────────────────┐
                ▼                 ▼                  ▼
         ┌──────────┐     ┌──────────┐       ┌──────────┐
-        │ EAP-IG   │     │ EAP-IG   │  ...  │ EAP-IG   │
-        │ c₁       │     │ c₂       │       │ cₖ       │
+        │ EAP      │     │ EAP      │  ...  │ EAP      │
+        │ T₁       │     │ T₂       │       │ Tₖ       │
         └────┬─────┘     └────┬─────┘       └────┬─────┘
              │                │                   │
              ▼                ▼                   ▼
-        scores(c₁)       scores(c₂)         scores(cₖ)
+        scores(T₁)       scores(T₂)         scores(Tₖ)
              │                │                   │
              └────────────────┼───────────────────┘
                               │
                     ┌─────────▼──────────┐
-                    │  DRO Aggregation   │
-                    │  Max / CVaR / Smx  │
+                    │  Aggregation       │
+                    │  ERM / DRO         │
                     └─────────┬──────────┘
                               │
                     ┌─────────▼──────────┐
-                    │  Top-n Selection   │
+                    │  Top-B Selection   │
                     └─────────┬──────────┘
                               │
                     ┌─────────▼──────────┐
@@ -39,12 +39,15 @@ Standard circuit discovery methods score edges under a single corruption, making
 ```
 
 **Pipeline:**
-1. **Score** — For each corruption family $c_k$, run EAP-IG attribution with all $N$ samples → per-edge scores $s_e^{(k)}$
-2. **Aggregate** — Apply a DRO rule over the $K$ corruption scores:
-   - **Max**: $s_e = \max_k |s_e^{(k)}|$ (pure worst-case)
-   - **CVaR($\alpha$)**: average of top-$\lceil \alpha K \rceil$ scores (tail-risk, $\alpha \to 0$: max, $\alpha = 1$: mean)
-   - **Softmax($\tau$)**: temperature-weighted sum ($\tau \to 0$: max, $\tau \to \infty$: mean)
-3. **Select** — Take top-$n$ edges by aggregated score → sparse circuit
+1. **Score** — For each corruption family $T_k$, run EAP on all $N$ examples → per-edge scores $s(e; k)$
+2. **Aggregate** — Apply an ERM or DRO rule over the $K$ corruption scores:
+   - **ERM (Mean)**: $S(e) = \frac{1}{K} \sum_k |\bar{s}(e; k)|$ (average-case)
+   - **Local DRO**: $S(e) = \frac{1}{N} \sum_i \max_k |s(e; x_i, \tilde{x}_{ik})|$ (per-example worst-case)
+   - **Max (Group DRO)**: $S(e) = \max_k |\bar{s}(e; k)|$ (worst corruption family)
+   - **CVaR($\alpha$)**: average of top-$\lceil \alpha K \rceil$ scores (tail-risk)
+   - **Softmax($\tau$)**: temperature-weighted sum (smooth max)
+3. **Select** — Take top-$B$ edges by aggregated score → sparse circuit
+4. **Evaluate** — Normalized faithfulness under all corruptions (mean, worst-group, per-example worst-case)
 
 ## Installation
 
@@ -55,20 +58,20 @@ pip install -e .
 ```
 
 The `--recursive` flag pulls the two vendor submodules:
-- `vendor/EAP-IG` — Edge Attribution Patching with Integrated Gradients (scoring engine)
+- `vendor/EAP-IG` — Edge Attribution Patching (scoring engine; we use the EAP method)
 - `vendor/Automatic-Circuit-Discovery` — ACDC (IOI task and dataset)
 
 ## Quick Start
 
-**Single experiment** — find a 200-edge circuit using CVaR(0.5) aggregation:
+**Single experiment** — find a 200-edge circuit using Max (Group DRO) aggregation:
 
 ```bash
 python -m dro_circuit.scripts.run \
-  --task ioi --n_edges 200 --aggregator cvar --cvar_alpha 0.5 \
+  --task ioi --n_edges 200 --aggregator max \
   --device cuda --output_dir outputs/single_run
 ```
 
-**Comprehensive experiment** — sweep 8 budgets × 10 aggregators (120 circuits):
+**Comprehensive experiment** — ERM vs DRO comparison across multiple budgets and aggregators:
 
 ```bash
 python experiments/comprehensive_experiment.py \
@@ -84,50 +87,71 @@ python experiments/analyze_results.py \
   --output_dir outputs/comprehensive/figures
 ```
 
+## Aggregator Options
+
+```bash
+# ERM — average-case baseline
+--aggregator mean
+
+# Local DRO — per-example worst-case (requires per-example scoring)
+--aggregator local_dro
+
+# Max — Group DRO, pure worst-case corruption family
+--aggregator max
+
+# CVaR — tail risk, alpha controls interpolation (0→max, 1→mean)
+--aggregator cvar --cvar_alpha 0.5
+
+# Softmax — smooth max, tau controls temperature (0→max, ∞→mean)
+--aggregator softmax --softmax_temp 1.0
+```
+
 ## Project Structure
 
 ```
 dro_circuit/
-├── dro_circuit/                  # Main package
-│   ├── config.py                 # Experiment configuration dataclasses
-│   ├── tasks/ioi.py              # IOI task: model, dataset, metrics
+├── dro_circuit/                     # Main package
+│   ├── config.py                    # Experiment configuration dataclasses
+│   ├── tasks/ioi.py                 # IOI task: model, dataset, metrics
 │   ├── corruption/
-│   │   ├── base.py               # CorruptionFamily abstract interface
-│   │   └── ioi.py                # 5 IOI corruption families
+│   │   ├── base.py                  # CorruptionFamily abstract interface
+│   │   └── ioi.py                   # 5 IOI corruption families
 │   ├── data/
-│   │   ├── multi_corrupt_dataset.py  # Dataset pairing clean inputs with K corruptions
-│   │   └── eap_adapter.py           # Adapter for EAP-IG DataLoader format
+│   │   ├── multi_corrupt_dataset.py # Dataset pairing clean inputs with K corruptions
+│   │   └── eap_adapter.py           # Adapter for EAP DataLoader format
 │   ├── scoring/
-│   │   ├── per_corruption_scorer.py  # EAP-IG attribution per corruption
-│   │   └── score_store.py            # Score tensor storage (K, n_fwd, n_bwd)
+│   │   ├── per_corruption_scorer.py # EAP attribution per corruption (aggregated + per-example)
+│   │   └── score_store.py           # ScoreStore (K,F,B) + PerExampleScoreStore (K,N,F,B)
 │   ├── aggregation/
-│   │   └── aggregators.py        # Max / CVaR / Softmax DRO aggregators
+│   │   └── aggregators.py           # Mean / LocalDRO / Max / CVaR / Softmax aggregators
 │   ├── selection/
-│   │   └── pipeline.py           # DROPipeline: Score → Aggregate → Select
+│   │   └── pipeline.py              # DROPipeline: Score → Aggregate → Select
 │   ├── evaluation/
-│   │   ├── metrics.py            # logit_diff, KL divergence
-│   │   └── robust_evaluator.py   # Evaluate circuit under all corruptions
+│   │   ├── metrics.py               # logit_diff, KL divergence
+│   │   └── robust_evaluator.py      # Raw + normalized faithfulness evaluation
 │   └── scripts/
-│       └── run.py                # CLI entry point
+│       └── run.py                   # CLI entry point
 ├── experiments/
-│   ├── comprehensive_experiment.py   # Full grid experiment (120 circuits)
-│   ├── compare_naive_vs_dro.py       # Quick comparison demo
-│   ├── mixed_corruption_experiment.py # Mixed vs DRO baseline
-│   ├── analyze_results.py            # Generate figures and tables
-│   └── visualize_circuits.py         # Graphviz circuit rendering
-├── tests/                        # Unit tests (pytest)
+│   ├── comprehensive_experiment.py  # Full ERM vs DRO experiment grid
+│   ├── analyze_results.py           # Generate figures and tables
+│   └── visualize_circuits.py        # Graphviz circuit rendering
+├── tests/                           # Unit tests (pytest)
 ├── vendor/
-│   ├── EAP-IG/                   # Edge Attribution Patching
-│   └── Automatic-Circuit-Discovery/  # ACDC (IOI dataset)
-├── docs/                         # Technical documentation (mkdocs)
-└── presentation.html             # Interactive 17-slide presentation
+│   ├── EAP-IG/                      # Edge Attribution Patching
+│   └── Automatic-Circuit-Discovery/ # ACDC (IOI dataset)
+└── docs/                            # Documentation
+    ├── user/                        # User-facing docs (architecture, getting-started)
+    └── research/references/         # Formal problem & experiment setup
 ```
 
 ## Documentation
 
 See `docs/` for detailed documentation:
-- [Architecture](docs/docs/architecture.md) — pipeline design, module responsibilities, data flow
-- [Getting Started](docs/docs/getting-started.md) — installation, first run, experiment workflow
+
+- [Getting Started](docs/user/getting-started.md) — installation, first run, experiment workflow
+- [Architecture](docs/user/architecture.md) — pipeline design, module responsibilities, data flow, IOI corruption families
+- [Problem Setup](docs/research/references/problem-setup.md) — grouped intervention dataset, faithfulness loss, ERM/DRO objectives
+- [Experiment Setup](docs/research/references/experiment-setup.md) — EAP scoring, aggregation formulas, evaluation protocol
 
 ## Tests
 
@@ -138,4 +162,3 @@ python -m pytest tests/ -v
 ## License
 
 MIT
-
