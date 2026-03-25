@@ -1,2 +1,2 @@
 from dro_circuit.scoring.per_corruption_scorer import PerCorruptionScorer
-from dro_circuit.scoring.score_store import ScoreStore
+from dro_circuit.scoring.score_store import PerExampleScoreStore, ScoreStore

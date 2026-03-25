@@ -1,15 +1,18 @@
 #!/usr/bin/env python
 """
-Comprehensive experiment: Naive vs DRO circuit discovery across all axes.
+Comprehensive experiment: ERM vs DRO circuit discovery.
 
-Grid:
-  - 200 examples, 6 corruptions, 8 edge budgets, 10 aggregators
-  - 128 circuits total, 774 evaluations
+Follows the protocol defined in docs/research/reference/experiment-setup.md:
+  - EAP scoring on GPT-2 small for IOI with K=5 corruption families
+  - ERM circuit: MeanAggregator (average over K corruptions)
+  - DRO circuits: Max, CVaR, Softmax aggregators over K corruptions
+  - Single-corruption baselines ("naive") for additional comparison
+  - Evaluation via normalized faithfulness (Faith metric)
 
 Three phases with checkpoint/resume:
-  Phase 1: Score edges per corruption (save scores.pt)
+  Phase 1: Score edges per corruption using EAP (save scores.pt)
   Phase 2: Build circuits for all (aggregator, budget) pairs (save masks)
-  Phase 3: Evaluate all circuits under all corruptions (save raw_results.json)
+  Phase 3: Evaluate all circuits via normalized faithfulness (save results)
 
 Usage:
     python experiments/comprehensive_experiment.py \
@@ -41,12 +44,14 @@ from dro_circuit.aggregation.aggregators import make_aggregator
 from dro_circuit.data.eap_adapter import make_eap_dataloader
 from dro_circuit.evaluation.metrics import logit_diff_loss
 from dro_circuit.evaluation.robust_evaluator import (
+    compute_normalized_robust_metrics,
     compute_robust_metrics,
     evaluate_baseline_robust,
+    evaluate_normalized_faithfulness,
     evaluate_robust,
 )
 from dro_circuit.scoring.per_corruption_scorer import PerCorruptionScorer
-from dro_circuit.scoring.score_store import ScoreStore
+from dro_circuit.scoring.score_store import PerExampleScoreStore, ScoreStore
 from dro_circuit.tasks.ioi import IOITask
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -56,18 +61,29 @@ ALL_CORRUPTIONS = ["S2_IO", "IO_RAND", "S_RAND", "S1_RAND", "IO_S1"]
 
 DEFAULT_EDGE_BUDGETS = [25, 50, 100, 200, 400, 800, 1600, 3200]
 
-# Aggregator configs: ordered from worst-case to average-case
-AGGREGATOR_CONFIGS = OrderedDict([
+# ERM aggregator: mean over K corruptions (the ERM baseline)
+ERM_CONFIG = ("mean", ("mean", {}))
+
+# Group-level DRO aggregator configs (operate on corruption-averaged scores)
+GROUP_DRO_CONFIGS = OrderedDict([
     ("max",          ("max",     {})),
     ("cvar_0.17",    ("cvar",    {"alpha": 1 / 6})),
     ("cvar_0.33",    ("cvar",    {"alpha": 1 / 3})),
     ("cvar_0.50",    ("cvar",    {"alpha": 0.5})),
     ("cvar_0.67",    ("cvar",    {"alpha": 2 / 3})),
-    ("cvar_1.00",    ("cvar",    {"alpha": 1.0})),
     ("softmax_0.01", ("softmax", {"temperature": 0.01})),
     ("softmax_0.1",  ("softmax", {"temperature": 0.1})),
     ("softmax_1.0",  ("softmax", {"temperature": 1.0})),
     ("softmax_10.0", ("softmax", {"temperature": 10.0})),
+])
+
+# Local DRO: per-example worst-case (requires per-example scores)
+LOCAL_DRO_CONFIG = ("local_dro", ("local_dro", {}))
+
+# All group-level aggregator configs (ERM + Group DRO) for iteration
+ALL_AGGREGATOR_CONFIGS = OrderedDict([
+    ("erm_mean", ERM_CONFIG[1]),
+    *GROUP_DRO_CONFIGS.items(),
 ])
 
 
@@ -112,9 +128,31 @@ def phase1_score(model, dataset, metric, batch_size, output_dir, resume=False):
     return store
 
 
+def phase1b_score_per_example(model, dataset, metric, batch_size, output_dir, resume=False):
+    """Score edges per corruption with per-example granularity. Returns PerExampleScoreStore."""
+    scores_path = output_dir / "scores_per_example.pt"
+
+    if resume and scores_path.exists():
+        print(f"[Phase 1b] Loading existing per-example scores from {scores_path}")
+        return PerExampleScoreStore.load(str(scores_path))
+
+    print("[Phase 1b] Scoring edges per corruption (per-example mode)...")
+    t0 = time.time()
+
+    scorer = PerCorruptionScorer(
+        model, method="EAP", batch_size=batch_size, quiet=False,
+    )
+    store = scorer.score_all_corruptions_per_example(dataset, metric)
+    store.save(str(scores_path))
+
+    elapsed = time.time() - t0
+    print(f"[Phase 1b] Done in {elapsed:.1f}s. Per-example scores saved to {scores_path}")
+    return store
+
+
 # ── Phase 2: Build ─────────────────────────────────────────────────────────
 
-def phase2_build(model, score_store, edge_budgets, output_dir):
+def phase2_build(model, score_store, edge_budgets, output_dir, per_example_store=None):
     """
     Build all circuits for every (budget, method) pair.
     Returns dict of {circuit_name: {"in_graph": tensor, "actual_edges": int, "scores": tensor}}.
@@ -133,7 +171,7 @@ def phase2_build(model, score_store, edge_budgets, output_dir):
     for budget in edge_budgets:
         print(f"  Budget n={budget}:")
 
-        # Naive circuits: one per corruption
+        # Single-corruption baselines ("naive"): one per corruption
         for cname in corruptions:
             name = circuit_name("naive", cname, budget)
             graph = Graph.from_model(model)
@@ -149,11 +187,30 @@ def phase2_build(model, score_store, edge_budgets, output_dir):
             torch.save(circuits_info[name], masks_dir / f"{name}.pt")
             print(f"    {name}: {actual} edges")
 
-        # DRO circuits: one per aggregator
-        for agg_name, (agg_type, agg_kwargs) in AGGREGATOR_CONFIGS.items():
-            name = circuit_name("dro", agg_name, budget)
+        # ERM + DRO circuits: one per aggregator
+        for agg_name, (agg_type, agg_kwargs) in ALL_AGGREGATOR_CONFIGS.items():
+            name = circuit_name("agg", agg_name, budget)
             aggregator = make_aggregator(agg_type, **agg_kwargs)
             agg_scores = aggregator.aggregate(all_scores)
+
+            graph = Graph.from_model(model)
+            graph.scores = agg_scores.to(graph.scores.device)
+            graph.apply_topn(budget, absolute=True)
+            actual = int(graph.in_graph.sum().item())
+
+            circuits_info[name] = {
+                "in_graph": graph.in_graph.cpu().clone(),
+                "scores": graph.scores.cpu().clone(),
+                "actual_edges": actual,
+            }
+            torch.save(circuits_info[name], masks_dir / f"{name}.pt")
+            print(f"    {name}: {actual} edges")
+
+        # Local DRO circuit (requires per-example scores)
+        if per_example_store is not None:
+            name = circuit_name("agg", "local_dro", budget)
+            aggregator = make_aggregator("local_dro")
+            agg_scores = aggregator.aggregate(per_example_store.all_scores())
 
             graph = Graph.from_model(model)
             graph.scores = agg_scores.to(graph.scores.device)
@@ -247,10 +304,10 @@ def compute_summary(raw_results, circuits_info):
 
 
 def print_main_table(summary, corruptions, edge_budgets):
-    """Print concise main comparison table."""
+    """Print concise main comparison table: ERM vs DRO-max."""
 
     print("\n" + "=" * 120)
-    print("MAIN RESULTS: DRO-max vs Best-Naive at each edge budget")
+    print("MAIN RESULTS: ERM vs DRO-max at each edge budget")
     print("=" * 120)
 
     col_w = 10
@@ -262,17 +319,10 @@ def print_main_table(summary, corruptions, edge_budgets):
     print("-" * len(header))
 
     for budget in edge_budgets:
-        # Find best naive (lowest worst-case)
-        naive_names = [circuit_name("naive", c, budget) for c in corruptions]
-        naive_worsts = {n: summary[n]["worst"] for n in naive_names if n in summary}
-        if not naive_worsts:
-            continue
-        best_naive_name = min(naive_worsts, key=naive_worsts.get)
+        erm_name = circuit_name("agg", "erm_mean", budget)
+        dro_name = circuit_name("agg", "max", budget)
 
-        # DRO max
-        dro_name = circuit_name("dro", "max", budget)
-
-        for name, label in [(best_naive_name, f"best-naive"), (dro_name, "dro_max")]:
+        for name, label in [(erm_name, "ERM (mean)"), (dro_name, "DRO (max)")]:
             if name not in summary:
                 continue
             s = summary[name]
@@ -292,31 +342,22 @@ def print_aggregator_table(summary, edge_budgets):
     """Print aggregator comparison at each budget."""
 
     print("\n" + "=" * 100)
-    print("AGGREGATOR COMPARISON: Worst-case loss at each budget")
+    print("AGGREGATOR COMPARISON: Worst-group loss at each budget")
     print("=" * 100)
 
-    agg_names = list(AGGREGATOR_CONFIGS.keys())
+    agg_names = list(ALL_AGGREGATOR_CONFIGS.keys())
     col_w = 12
 
     header = f"{'Budget':<8}"
-    header += f"  {'best-naive':>{col_w}}"
     for agg in agg_names:
         header += f"  {agg:>{col_w}}"
     print(header)
     print("-" * len(header))
 
     for budget in edge_budgets:
-        # Best naive worst
-        naive_worsts = []
-        for c in ALL_CORRUPTIONS:
-            n = circuit_name("naive", c, budget)
-            if n in summary:
-                naive_worsts.append(summary[n]["worst"])
-        best_naive = min(naive_worsts) if naive_worsts else float("nan")
-
-        row = f"{budget:<8}  {best_naive:{col_w}.4f}"
+        row = f"{budget:<8}"
         for agg in agg_names:
-            n = circuit_name("dro", agg, budget)
+            n = circuit_name("agg", agg, budget)
             if n in summary:
                 row += f"  {summary[n]['worst']:{col_w}.4f}"
             else:
@@ -327,7 +368,7 @@ def print_aggregator_table(summary, edge_budgets):
 # ── Main ───────────────────────────────────────────────────────────────────
 
 def main():
-    parser = argparse.ArgumentParser(description="Comprehensive naive vs DRO experiment")
+    parser = argparse.ArgumentParser(description="Comprehensive ERM vs DRO experiment")
     parser.add_argument("--n_examples", type=int, default=200)
     parser.add_argument("--batch_size", type=int, default=25)
     parser.add_argument("--device", default="cpu")
@@ -356,18 +397,18 @@ def main():
         "corruptions": corruptions,
         "edge_budgets": args.edge_budgets,
         "aggregators": {
-            name: {"type": t, **kw} for name, (t, kw) in AGGREGATOR_CONFIGS.items()
+            name: {"type": t, **kw} for name, (t, kw) in ALL_AGGREGATOR_CONFIGS.items()
         },
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
     }
     save_json(metadata, output_dir / "metadata.json")
 
     # ── Setup ──────────────────────────────────────────────────────────────
-    print(f"=== Comprehensive Naive vs DRO Experiment ===")
+    print(f"=== Comprehensive ERM vs DRO Experiment ===")
     print(f"  n_examples={args.n_examples}, device={args.device}")
     print(f"  corruptions={corruptions}")
     print(f"  edge_budgets={args.edge_budgets}")
-    print(f"  aggregators={list(AGGREGATOR_CONFIGS.keys())}")
+    print(f"  aggregators={list(ALL_AGGREGATOR_CONFIGS.keys())}")
     print(f"  output_dir={output_dir}")
     print()
 
@@ -393,7 +434,8 @@ def main():
     total_t0 = time.time()
 
     score_store = phase1_score(model, multi_ds, metric, args.batch_size, output_dir, resume=args.resume)
-    circuits_info = phase2_build(model, score_store, args.edge_budgets, output_dir)
+    per_example_store = phase1b_score_per_example(model, multi_ds, metric, args.batch_size, output_dir, resume=args.resume)
+    circuits_info = phase2_build(model, score_store, args.edge_budgets, output_dir, per_example_store=per_example_store)
     raw_results = phase3_evaluate(
         model, circuits_info, multi_ds, metric, args.batch_size, output_dir, resume=args.resume
     )
@@ -408,31 +450,27 @@ def main():
     print_main_table(summary, corruptions, args.edge_budgets)
     print_aggregator_table(summary, args.edge_budgets)
 
-    # ── Win/loss summary ───────────────────────────────────────────────────
+    # ── Win/loss summary: ERM vs DRO-max ─────────────────────────────────
     print("\n" + "=" * 60)
-    print("DRO-max vs Best-Naive: Win/Loss Summary")
+    print("DRO-max vs ERM: Win/Loss Summary (worst-group metric)")
     print("=" * 60)
 
     wins = 0
     for budget in args.edge_budgets:
-        dro_name = circuit_name("dro", "max", budget)
-        naive_worsts = []
-        for c in corruptions:
-            n = circuit_name("naive", c, budget)
-            if n in summary:
-                naive_worsts.append(summary[n]["worst"])
-        if not naive_worsts or dro_name not in summary:
+        erm_name = circuit_name("agg", "erm_mean", budget)
+        dro_name = circuit_name("agg", "max", budget)
+        if erm_name not in summary or dro_name not in summary:
             continue
-        best_naive_worst = min(naive_worsts)
+        erm_worst = summary[erm_name]["worst"]
         dro_worst = summary[dro_name]["worst"]
-        win = dro_worst <= best_naive_worst
+        win = dro_worst <= erm_worst
         if win:
             wins += 1
         tag = "WIN" if win else "LOSE"
-        print(f"  n={budget}: DRO={dro_worst:.4f} vs Naive={best_naive_worst:.4f}  [{tag}]"
-              f"  (Δ={best_naive_worst - dro_worst:.4f})")
+        print(f"  n={budget}: DRO={dro_worst:.4f} vs ERM={erm_worst:.4f}  [{tag}]"
+              f"  (Δ={erm_worst - dro_worst:.4f})")
 
-    print(f"\nDRO-max wins {wins}/{len(args.edge_budgets)} edge budgets on worst-case metric.")
+    print(f"\nDRO-max wins {wins}/{len(args.edge_budgets)} edge budgets on worst-group metric.")
     print(f"\nResults saved to {output_dir}/")
 
 
