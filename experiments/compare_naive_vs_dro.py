@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 """
+NOTE: This is a legacy demo script using the older "naive vs DRO" framing.
+For the current ERM vs DRO comparison protocol, see comprehensive_experiment.py.
+
 Experiment: Compare naive (single-corruption) vs DRO circuit discovery.
 
 Design:

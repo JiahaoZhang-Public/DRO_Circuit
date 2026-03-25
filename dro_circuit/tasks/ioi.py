@@ -97,7 +97,7 @@ class IOITask:
         return multi_ds, clean_ds
 
     def get_scoring_metric(self) -> Callable:
-        """Metric for EAP-IG attribution (loss form, mean reduced)."""
+        """Metric for EAP attribution (loss form, mean reduced)."""
         return logit_diff_loss
 
     def get_eval_metric(self) -> Callable:

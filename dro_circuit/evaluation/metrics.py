@@ -1,6 +1,6 @@
-"""Metric functions compatible with EAP-IG's expected signature.
+"""Metric functions compatible with EAP's expected signature.
 
-EAP-IG metrics have the signature:
+EAP metrics have the signature:
     metric(logits, clean_logits, input_lengths, labels) -> Tensor
 """
 
@@ -67,7 +67,7 @@ def kl_divergence(
     return kl
 
 
-# Convenience aliases matching EAP-IG convention
+# Convenience aliases matching EAP convention
 def logit_diff_loss(logits, clean_logits, input_lengths, labels):
     """Logit diff as loss (negated, mean-reduced) for attribution scoring."""
     return logit_diff(logits, clean_logits, input_lengths, labels, loss=True, mean=True)
@@ -94,7 +94,7 @@ def docstring_metric(
 
     Args:
         logits: (batch, seq_len, vocab_size)
-        clean_logits: unused (EAP-IG signature compatibility)
+        clean_logits: unused (EAP signature compatibility)
         input_lengths: unused (docstring uses position -1 directly)
         labels: (batch, 2) with [correct_token_id, first_wrong_token_id]
         wrong_labels: (batch, n_wrong) all wrong token IDs. If None,
@@ -115,7 +115,7 @@ def docstring_metric(
 def make_docstring_metric(wrong_labels: torch.Tensor):
     """Create a docstring metric closure with bound wrong_labels.
 
-    Returns a function with EAP-IG compatible signature:
+    Returns a function with EAP-compatible signature:
         metric(logits, clean_logits, input_lengths, labels) -> Tensor
     """
     def _metric(logits, clean_logits, input_lengths, labels):

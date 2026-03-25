@@ -1,5 +1,6 @@
 site_name: DRO Circuit Discovery
 site_author: Jiahao Zhang
+docs_dir: user/
 
 nav:
   - Home: index.md
