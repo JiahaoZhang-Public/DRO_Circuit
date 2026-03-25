@@ -16,7 +16,7 @@ from transformer_lens import HookedTransformer
 
 from dro_circuit.data.eap_adapter import make_eap_dataloader
 from dro_circuit.data.multi_corrupt_dataset import MultiCorruptDataset
-from dro_circuit.scoring.score_store import ScoreStore
+from dro_circuit.scoring.score_store import PerExampleScoreStore, ScoreStore
 
 
 class PerCorruptionScorer:
@@ -98,5 +98,58 @@ class PerCorruptionScorer:
 
             # Store results
             store.set_scores(corruption_name, graph.scores.cpu().clone())
+
+        return store
+
+    def score_all_corruptions_per_example(
+        self,
+        dataset: MultiCorruptDataset,
+        metric: Callable,
+    ) -> PerExampleScoreStore:
+        """
+        Score edges under each corruption variant, retaining per-example scores.
+
+        Uses EAP's per_example mode to return scores of shape (N, n_forward, n_backward)
+        for each corruption, stored in a PerExampleScoreStore of shape (K, N, n_fwd, n_bwd).
+
+        Only supports method='EAP'.
+
+        Returns:
+            PerExampleScoreStore with shape (K, N, n_forward, n_backward)
+        """
+        if self.method != "EAP":
+            raise ValueError(
+                f"per-example scoring only supports method='EAP', got '{self.method}'"
+            )
+
+        graph_template = Graph.from_model(self.model)
+        store = PerExampleScoreStore(
+            corruption_names=dataset.corruption_names,
+            n_examples=len(dataset),
+            n_forward=graph_template.n_forward,
+            n_backward=graph_template.n_backward,
+        )
+
+        for corruption_name in dataset.corruption_names:
+            if not self.quiet:
+                print(f"  Scoring corruption (per-example): {corruption_name}")
+
+            graph = Graph.from_model(self.model)
+            dataloader = make_eap_dataloader(dataset, corruption_name, self.batch_size)
+
+            # attribute() with per_example=True returns (N, n_fwd, n_bwd) directly
+            per_example_scores = attribute(
+                self.model,
+                graph,
+                dataloader,
+                metric,
+                method="EAP",
+                intervention=self.intervention,
+                aggregation=self.aggregation,
+                per_example=True,
+                quiet=self.quiet,
+            )
+
+            store.set_scores(corruption_name, per_example_scores.cpu())
 
         return store

@@ -76,3 +76,51 @@ def logit_diff_loss(logits, clean_logits, input_lengths, labels):
 def logit_diff_metric(logits, clean_logits, input_lengths, labels):
     """Logit diff as metric (non-negated, mean-reduced) for evaluation."""
     return logit_diff(logits, clean_logits, input_lengths, labels, loss=False, mean=True)
+
+
+def docstring_metric(
+    logits: torch.Tensor,
+    clean_logits: torch.Tensor,
+    input_lengths: torch.Tensor,
+    labels: torch.Tensor,
+    wrong_labels: torch.Tensor = None,
+) -> torch.Tensor:
+    """
+    Docstring metric matching ACDC's raw_docstring_metric.
+
+    Computes -(correct_logit - max(wrong_logits)) at position -1.
+    The docstring model is attn-only (fixed-length prompts), so position -1
+    is always the prediction position.
+
+    Args:
+        logits: (batch, seq_len, vocab_size)
+        clean_logits: unused (EAP-IG signature compatibility)
+        input_lengths: unused (docstring uses position -1 directly)
+        labels: (batch, 2) with [correct_token_id, first_wrong_token_id]
+        wrong_labels: (batch, n_wrong) all wrong token IDs. If None,
+            falls back to labels[:, 1] as the single wrong token.
+    """
+    batch_idx = torch.arange(logits.shape[0], device=logits.device)
+    correct_logits = logits[batch_idx, -1, labels[:, 0]]
+
+    if wrong_labels is not None:
+        incorrect_logits = logits[batch_idx.unsqueeze(-1), -1, wrong_labels]
+        max_incorrect = incorrect_logits.max(dim=-1).values
+    else:
+        max_incorrect = logits[batch_idx, -1, labels[:, 1]]
+
+    return -(correct_logits - max_incorrect).mean()
+
+
+def make_docstring_metric(wrong_labels: torch.Tensor):
+    """Create a docstring metric closure with bound wrong_labels.
+
+    Returns a function with EAP-IG compatible signature:
+        metric(logits, clean_logits, input_lengths, labels) -> Tensor
+    """
+    def _metric(logits, clean_logits, input_lengths, labels):
+        return docstring_metric(
+            logits, clean_logits, input_lengths, labels,
+            wrong_labels=wrong_labels,
+        )
+    return _metric

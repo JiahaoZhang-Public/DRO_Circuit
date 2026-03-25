@@ -61,6 +61,56 @@ class CVaRAggregator(DROAggregator):
         return top_scores.mean(dim=0)
 
 
+class MeanAggregator(DROAggregator):
+    """
+    ERM aggregation: s_e = mean_k |s_e^{(k)}|
+
+    Treats all corruption families equally (average-case).
+    Equivalent to CVaR with alpha=1.
+    """
+
+    def __init__(self, absolute: bool = True):
+        self.absolute = absolute
+
+    def aggregate(self, scores: torch.Tensor) -> torch.Tensor:
+        if self.absolute:
+            scores = scores.abs()
+        return scores.mean(dim=0)
+
+
+class LocalDROAggregator(DROAggregator):
+    """
+    Per-example worst-case (Local DRO) aggregation.
+
+    Requires per-example scores of shape (K, N, n_forward, n_backward).
+    For each example, takes the max over corruptions, then averages over examples.
+
+    S_DRO_local(e) = (1/N) sum_i max_k |s(e; x_i, x̃_ik)|
+    """
+
+    def __init__(self, absolute: bool = True):
+        self.absolute = absolute
+
+    def aggregate(self, scores: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            scores: shape (K, N, n_forward, n_backward) -- per-example, per-corruption scores.
+
+        Returns:
+            Tensor (n_forward, n_backward) -- aggregated robust scores.
+        """
+        if scores.ndim != 4:
+            raise ValueError(
+                f"LocalDROAggregator requires per-example scores of shape "
+                f"(K, N, n_forward, n_backward), got {scores.shape}"
+            )
+        if self.absolute:
+            scores = scores.abs()
+        # For each example, take max over corruptions K (dim=0), then mean over examples N (dim=0 after max)
+        per_example_worst = scores.max(dim=0).values  # (N, n_forward, n_backward)
+        return per_example_worst.mean(dim=0)  # (n_forward, n_backward)
+
+
 class SoftmaxAggregator(DROAggregator):
     """
     Softmax-weighted aggregation: sum_k softmax(|s_k|/tau) * |s_k|.
@@ -89,6 +139,8 @@ def make_aggregator(name: str, **kwargs) -> DROAggregator:
 
     registry = {
         "max": MaxAggregator,
+        "mean": MeanAggregator,
+        "local_dro": LocalDROAggregator,
         "cvar": CVaRAggregator,
         "softmax": SoftmaxAggregator,
     }

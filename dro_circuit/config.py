@@ -46,7 +46,7 @@ class DROConfig:
         softmax_temperature: Softmax temperature. 0→max, ∞→mean. Only used when aggregator='softmax'.
     """
 
-    aggregator: Literal["max", "cvar", "softmax"] = "max"
+    aggregator: Literal["max", "mean", "local_dro", "cvar", "softmax"] = "max"
     cvar_alpha: float = 0.5
     softmax_temperature: float = 1.0
 
