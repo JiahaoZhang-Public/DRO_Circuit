@@ -67,6 +67,42 @@ python experiments/comprehensive_experiment.py \
 
 **DRO-max wins worst-group faithfulness at 2/4 budgets** (100, 800). Mixed results — no clear winner.
 
+### Recovery Ratio (EAP-IG style: m̂/b, 1.0 = full recovery)
+
+| Method     | Budget | Mean | Worst | IO_RAND | IO_S1  | S1_RAND | S2_IO  | S_RAND |
+|------------|--------|------|-------|---------|--------|---------|--------|--------|
+| ERM        | 100    | 0.87 | 0.10  | 0.10    | 1.10   | 0.98    | 0.16   | 1.99   |
+| DRO-max    | 100    | 0.88 | -0.12 | -0.12   | 1.10   | 1.07    | 0.21   | 2.12   |
+| Local DRO  | 100    | 0.88 | -0.31 | -0.31   | 1.15   | 1.18    | 0.17   | 2.22   |
+| ERM        | 200    | 0.85 | 0.14  | 0.14    | 1.10   | 0.92    | 0.23   | 1.87   |
+| DRO-max    | 200    | 0.77 | -0.28 | -0.28   | 1.07   | 0.92    | 0.19   | 1.93   |
+| Local DRO  | 200    | 0.84 | -0.06 | -0.06   | 1.09   | 1.04    | 0.09   | 2.05   |
+| ERM        | 400    | 0.85 | 0.29  | 0.29    | 1.02   | 0.82    | 0.43   | 1.67   |
+| DRO-max    | 400    | 0.87 | 0.13  | 0.13    | 1.05   | 0.96    | 0.41   | 1.82   |
+| Local DRO  | 400    | 0.85 | 0.13  | 0.13    | 1.03   | 1.01    | 0.18   | 1.93   |
+| ERM        | 800    | 0.88 | 0.59  | 0.59    | 0.87   | 0.88    | 0.60   | 1.46   |
+| DRO-max    | 800    | 0.92 | 0.45  | 0.45    | 0.90   | 0.96    | 0.69   | 1.58   |
+| Local DRO  | 800    | 0.90 | 0.27  | 0.27    | 1.05   | 1.04    | 0.46   | 1.69   |
+| Naive-IO   | 100    | 0.73 | -1.35 | -1.35   | 1.03   | 1.35    | 0.09   | 2.52   |
+| Naive-IO   | 200    | 0.78 | -1.27 | -1.27   | 1.06   | 1.42    | 0.18   | 2.50   |
+| Naive-IO   | 400    | 0.78 | -1.20 | -1.20   | 1.02   | 1.43    | 0.18   | 2.47   |
+| Naive-IO   | 800    | 0.67 | 0.10  | 0.58    | 0.69   | 0.61    | 0.10   | 1.35   |
+| Naive-S    | 100    | 0.60 | -0.93 | -0.93   | 1.13   | 0.87    | 0.01   | 1.91   |
+| Naive-S    | 200    | 0.77 | -0.04 | -0.04   | 1.04   | 0.85    | 0.15   | 1.86   |
+| Naive-S    | 400    | 0.73 | 0.15  | 0.15    | 0.96   | 0.73    | 0.16   | 1.67   |
+| Naive-S    | 800    | 0.71 | 0.32  | 0.36    | 0.85   | 0.57    | 0.32   | 1.44   |
+
+### Winner per Budget (Worst-Group Recovery, higher = better)
+
+| Budget | ERM   | DRO-max | Naive-IO | Naive-S | Winner  |
+|--------|-------|---------|----------|---------|---------|
+| 100    | **0.10** | -0.12 | -1.35    | -0.93   | **ERM** |
+| 200    | **0.14** | -0.28 | -1.27    | -0.04   | **ERM** |
+| 400    | **0.29** | 0.13  | -1.20    | 0.15    | **ERM** |
+| 800    | 0.59  | 0.45   | 0.10     | 0.32    | **ERM** |
+
+**With recovery ratio, ERM wins worst-group at all 4 budgets.** This is consistent with the original raw loss results but inconsistent with normalized faithfulness — the difference is driven by how the metrics handle the denominator.
+
 ### Key observations
 
 1. **IO_RAND is consistently the hardest corruption** for all methods — it produces the least negative (worst) loss at every budget.
