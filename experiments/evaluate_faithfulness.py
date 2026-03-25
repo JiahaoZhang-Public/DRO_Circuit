@@ -74,9 +74,9 @@ def main():
     print(f"  n_examples: {n_examples}, seed: {seed}")
 
     # Load model and dataset
-    task = IOITask(device=args.device)
+    task = IOITask(n_examples=n_examples, seed=seed, device=args.device)
     model = task.load_model()
-    multi_ds, _ = task.build_dataset(model.tokenizer, n_examples=n_examples, seed=seed)
+    multi_ds, _ = task.build_dataset(model.tokenizer)
 
     # Discover circuits to evaluate
     all_masks = sorted(masks_dir.glob("*.pt"))
